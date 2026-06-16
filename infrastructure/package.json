@@ -1,0 +1,24 @@
+{
+  "name": "mtms-infrastructure",
+  "version": "1.0.0",
+  "bin": {
+    "mtms": "bin/mtms.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all",
+    "synth": "cdk synth",
+    "diff": "cdk diff"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "aws-cdk": "^2.173.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.173.2",
+    "constructs": "^10.4.2"
+  }
+}
