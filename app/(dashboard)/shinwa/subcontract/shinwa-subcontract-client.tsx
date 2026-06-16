@@ -3,11 +3,9 @@
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
 import { StatusTable } from '@/components/tables/status-table';
 
-const navItems = [
-  { href: '/shinwa/incoming', labelKey: 'nav.incoming' as const },
-  { href: '/shinwa/fleet', labelKey: 'nav.fleet' as const },
-  { href: '/shinwa/subcontract', labelKey: 'nav.subcontract' as const },
-];
+import { shinwaNavItems } from '@/lib/nav/shinwa';
+
+const navItems = shinwaNavItems;
 
 type Request = {
   id: string;
@@ -18,7 +16,8 @@ type Request = {
   updatedAt: Date;
   tripAllocation?: {
     driver: { name: string };
-    vehicle: { plateNumber: string };
+    vehicle?: { plateNumber: string } | null;
+    truck?: { plateNumber: string } | null;
   } | null;
 };
 

@@ -1,0 +1,65 @@
+'use client';
+
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn, formatDate } from '@/lib/utils';
+
+type QrStatus = 'WAITING' | 'SCANNED' | 'APPROVED';
+
+function resolveQrStatus(input: {
+  hasConfirmation: boolean;
+  approved: boolean;
+}): QrStatus {
+  if (input.approved) return 'APPROVED';
+  if (input.hasConfirmation) return 'SCANNED';
+  return 'WAITING';
+}
+
+export function CustomerConfirmationCard({
+  driverName,
+  truckNo,
+  hasConfirmation,
+  approved,
+  approvedAt,
+  approvedBy,
+  expiresAt,
+}: {
+  driverName: string;
+  truckNo: string;
+  hasConfirmation: boolean;
+  approved: boolean;
+  approvedAt: Date | null;
+  approvedBy: string | null;
+  expiresAt: Date | null;
+}) {
+  const qrStatus = resolveQrStatus({ hasConfirmation, approved });
+  const tone =
+    qrStatus === 'APPROVED'
+      ? 'bg-emerald-50 text-emerald-700'
+      : qrStatus === 'SCANNED'
+        ? 'bg-blue-50 text-blue-700'
+        : 'bg-amber-50 text-amber-700';
+
+  return (
+    <Card className="rounded-2xl border-border/60">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3">
+        <div>
+          <p className="text-sm font-semibold">{driverName}</p>
+          <p className="text-xs text-muted-foreground">Truck: {truckNo}</p>
+        </div>
+        <div className="text-right">
+          <Badge className={cn('rounded-xl border-0 px-3 py-1', tone)}>QR: {qrStatus}</Badge>
+          {approved && approvedAt && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Confirmed {formatDate(approvedAt)}
+              {approvedBy ? ` · ${approvedBy}` : ''}
+            </p>
+          )}
+          {!approved && expiresAt && hasConfirmation && (
+            <p className="mt-1 text-[11px] text-muted-foreground">Expires {formatDate(expiresAt)}</p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

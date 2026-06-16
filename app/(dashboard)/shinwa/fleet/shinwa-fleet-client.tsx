@@ -6,18 +6,19 @@ import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/lib/i18n/context';
 import type { TranslationKey } from '@/lib/i18n';
 
-const navItems = [
-  { href: '/shinwa/incoming', labelKey: 'nav.incoming' as const },
-  { href: '/shinwa/fleet', labelKey: 'nav.fleet' as const },
-  { href: '/shinwa/subcontract', labelKey: 'nav.subcontract' as const },
-];
+import { shinwaNavItems } from '@/lib/nav/shinwa';
 
-type Vehicle = {
+const navItems = shinwaNavItems;
+
+type Truck = {
   id: string;
+  truckNo: string | null;
+  truckNumber: string;
+  truckType: string;
+  capacityWeightKg: number;
+  maxBoxes: number;
+  status: string;
   plateNumber: string;
-  vehicleType: string;
-  capacity: number;
-  isAvailable: boolean;
 };
 
 type Driver = {
@@ -29,16 +30,16 @@ type Driver = {
 };
 
 export function ShinwaFleetClient({
-  vehicles,
+  trucks,
   drivers,
 }: {
-  vehicles: Vehicle[];
+  trucks: Truck[];
   drivers: Driver[];
 }) {
   const { t } = useTranslation();
 
-  function vehicleLabel(type: string) {
-    const key = `vehicle.${type}` as TranslationKey;
+  function truckLabel(type: string) {
+    const key = `truck.${type}` as TranslationKey;
     const translated = t(key);
     return translated === key ? type.replace(/_/g, ' ') : translated;
   }
@@ -50,25 +51,25 @@ export function ShinwaFleetClient({
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>{t('shinwa.vehicles')}</CardTitle>
+              <CardTitle>{t('shinwa.availableTrucks')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {vehicles.map((v) => (
+              {trucks.map((tr) => (
                 <div
-                  key={v.id}
+                  key={tr.id}
                   className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4"
                 >
                   <div>
-                    <p className="font-semibold">{v.plateNumber}</p>
+                    <p className="font-semibold">{tr.truckNo ?? tr.truckNumber}</p>
                     <p className="text-xs text-muted-foreground">
-                      {vehicleLabel(v.vehicleType)} — {v.capacity} kg
+                      {truckLabel(tr.truckType)} — {tr.capacityWeightKg} kg / {tr.maxBoxes} boxes
                     </p>
                   </div>
                   <Badge
                     className="rounded-lg"
-                    variant={v.isAvailable ? 'default' : 'secondary'}
+                    variant={tr.status === 'AVAILABLE' ? 'default' : 'secondary'}
                   >
-                    {v.isAvailable ? t('common.available') : t('common.inUse')}
+                    {tr.status === 'AVAILABLE' ? t('common.available') : t('common.inUse')}
                   </Badge>
                 </div>
               ))}

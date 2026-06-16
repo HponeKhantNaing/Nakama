@@ -25,7 +25,7 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
   );
 }
 
-export const PUBLIC_ROUTES = ['/login', '/api/auth'];
+export const PUBLIC_ROUTES = ['/login', '/api/auth', '/delivery/confirm', '/confirm'];
 
 export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(

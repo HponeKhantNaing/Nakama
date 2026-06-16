@@ -14,8 +14,13 @@ type RequestRow = {
   updatedAt: Date;
   tripAllocation?: {
     driver: { name: string };
-    vehicle: { plateNumber: string };
+    vehicle?: { plateNumber: string } | null;
+    truck?: { plateNumber: string; truckNo?: string | null } | null;
   } | null;
+  truckAssignments?: {
+    driver?: { name: string } | null;
+    truck?: { truckNo: string | null; plateNumber: string } | null;
+  }[];
 };
 
 interface StatusTableProps {
@@ -76,6 +81,21 @@ export function StatusTable({ requests, actions }: StatusTableProps) {
           </thead>
           <tbody>
             {requests.map((req) => (
+              (() => {
+                const firstAssignment = req.truckAssignments?.[0];
+                const driverName =
+                  firstAssignment?.driver?.name ??
+                  req.tripAllocation?.driver.name ??
+                  '-';
+                const vehicleLabel =
+                  firstAssignment?.truck?.truckNo ??
+                  firstAssignment?.truck?.plateNumber ??
+                  req.tripAllocation?.truck?.truckNo ??
+                  req.tripAllocation?.truck?.plateNumber ??
+                  req.tripAllocation?.vehicle?.plateNumber ??
+                  '-';
+
+                return (
               <tr
                 key={req.id}
                 className="border-b border-border/40 transition-colors last:border-0 hover:bg-muted/20"
@@ -88,11 +108,13 @@ export function StatusTable({ requests, actions }: StatusTableProps) {
                     {statusLabel(req.status)}
                   </Badge>
                 </td>
-                <td className="px-5 py-4">{req.tripAllocation?.driver.name ?? '-'}</td>
-                <td className="px-5 py-4">{req.tripAllocation?.vehicle.plateNumber ?? '-'}</td>
+                <td className="px-5 py-4">{driverName}</td>
+                <td className="px-5 py-4">{vehicleLabel}</td>
                 <td className="px-5 py-4 text-muted-foreground">{formatDate(req.updatedAt)}</td>
                 {actions && <td className="px-5 py-4">{actions(req)}</td>}
               </tr>
+                );
+              })()
             ))}
           </tbody>
         </table>

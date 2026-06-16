@@ -11,7 +11,7 @@ export default async function SubcontractorAssignedPage() {
     <SubcontractorAssignedClient
       requests={requests}
       drivers={fleet.drivers}
-      vehicles={fleet.vehicles}
+      trucks={fleet.trucks}
     />
   );
 }

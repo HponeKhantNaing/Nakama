@@ -7,6 +7,22 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
+    // API routes: auth only — role checks live in route handlers
+    if (pathname.startsWith('/api/')) {
+      if (
+        isPublicRoute(pathname) ||
+        pathname.startsWith('/api/auth') ||
+        pathname.startsWith('/api/delivery/confirm') ||
+        pathname.startsWith('/api/confirm')
+      ) {
+        return NextResponse.next();
+      }
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      return NextResponse.next();
+    }
+
     if (pathname === '/') {
       if (token?.role) {
         return NextResponse.redirect(new URL(getDashboardForRole(token.role), req.url));
@@ -37,6 +53,8 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
+        // Let middleware handle API auth (return JSON 401, not HTML redirect)
+        if (pathname.startsWith('/api/')) return true;
         if (isPublicRoute(pathname) || pathname.startsWith('/api/auth')) {
           return true;
         }
@@ -54,8 +72,14 @@ export const config = {
     '/shinwa/:path*',
     '/subcontractor/:path*',
     '/driver/:path*',
+    '/delivery/confirm/:path*',
     '/api/transport/:path*',
     '/api/notifications/:path*',
     '/api/upload/:path*',
+    '/api/gps/:path*',
+    '/api/products/:path*',
+    '/api/trucks/:path*',
+    '/api/delivery/:path*',
+    '/api/analytics/:path*',
   ],
 };

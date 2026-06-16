@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Enterprise TMS Schema — Maruichi Transport Management System
 
 generator client {
   provider = "prisma-client-js"
@@ -10,6 +9,8 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
 
 enum CompanyType {
   MARUICHI
@@ -28,13 +29,86 @@ enum OrderStatus {
   PENDING
   SHINWA_ACCEPTED
   SUBCONTRACTED
+  SPLIT
   DRIVER_ASSIGNED
   DISPATCHED
   PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  AWAITING_CONFIRMATION
   DELIVERED
   CANCELLED
 }
 
+enum DeliveryPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum TruckType {
+  SMALL
+  MEDIUM
+  TEN_TON
+  BANN
+}
+
+enum AssignmentStatus {
+  PENDING
+  ASSIGNED
+  DISPATCHED
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  CANCELLED
+}
+
+enum TruckStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OFFLINE
+}
+
+enum DriverStatus {
+  AVAILABLE
+  DRIVING
+  BREAK
+  OFFLINE
+}
+
+enum LicenseType {
+  STANDARD
+  MEDIUM
+  LARGE
+  TRAILER
+}
+
+enum NotificationType {
+  NEW_REQUEST
+  ORDER_ACCEPTED
+  ORDER_REJECTED
+  DRIVER_ASSIGNED
+  TRUCK_ASSIGNED
+  STATUS_UPDATE
+  SUBCONTRACT_ASSIGNED
+  DELIVERY_SPLIT
+  GPS_UPDATE
+  DELIVERY_COMPLETE
+  CUSTOMER_CONFIRMED
+  ARRIVED_AT_DESTINATION
+}
+
+enum SplitStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Legacy alias — maps to TruckType in application layer
 enum VehicleType {
   SMALL_TRUCK
   MEDIUM_TRUCK
@@ -43,15 +117,7 @@ enum VehicleType {
   REFRIGERATED
 }
 
-enum NotificationType {
-  NEW_REQUEST
-  ORDER_ACCEPTED
-  ORDER_REJECTED
-  DRIVER_ASSIGNED
-  STATUS_UPDATE
-  SUBCONTRACT_ASSIGNED
-  DELIVERY_COMPLETE
-}
+// ─── Core Entities ───────────────────────────────────────────────────────────
 
 model Company {
   id        String      @id @default(cuid())
@@ -60,15 +126,20 @@ model Company {
   address   String?
   phone     String?
   email     String?
+  latitude  Float?
+  longitude Float?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
-  users                    User[]
-  createdRequests          TransportRequest[]       @relation("RequestCreator")
-  handledRequests          TransportRequest[]       @relation("RequestHandler")
-  subcontractAssignments   SubContractAssignment[]
-  vehicles                 Vehicle[]
-  drivers                  Driver[]
+  users                  User[]
+  warehouses             Warehouse[]
+  createdRequests        TransportRequest[]      @relation("RequestCreator")
+  handledRequests        TransportRequest[]      @relation("RequestHandler")
+  subcontractAssignments SubContractAssignment[]
+  trucks                 Truck[]
+  vehicles               Vehicle[]
+  drivers                Driver[]
+  deliverySplits         DeliverySplit[]
 
   @@index([type])
 }
@@ -92,15 +163,259 @@ model User {
   @@index([role])
 }
 
+model Warehouse {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company          Company            @relation(fields: [companyId], references: [id])
+  transportRequests TransportRequest[]
+
+  @@index([companyId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  latitude  Float
+  longitude Float
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transportRequests TransportRequest[]
+
+  @@index([name])
+}
+
+model Product {
+  id                   String   @id @default(cuid())
+  sku                  String   @unique
+  name                 String
+  unitWeight           Float
+  unitVolume           Float
+  category             String?
+  fragile              Boolean  @default(false)
+  temperatureControlled Boolean @default(false)
+  companyId            String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deliveryItems DeliveryItem[]
+
+  @@index([sku])
+  @@index([category])
+}
+
+// ─── Delivery (TransportRequest) ─────────────────────────────────────────────
+
+model TransportRequest {
+  id                 String           @id @default(cuid())
+  requestNo          String           @unique
+  origin             String
+  destination        String
+  cargoType          String?
+  cargoWeight        Float            @default(0)
+  cargoVolume        Float            @default(0)
+  totalQuantity      Int              @default(0)
+  vehicleType        VehicleType?
+  vehicleCount       Int              @default(1)
+  expectedPickupDate DateTime
+  deliveryDate       DateTime?
+  priority           DeliveryPriority @default(NORMAL)
+  status             OrderStatus      @default(PENDING)
+  estimatedCost      Float?
+  actualCost         Float?
+  notes              String?
+  proofImageUrl      String?
+  deliveryPhotoUrl   String?
+  creatorCompanyId   String
+  createdById        String?
+  handlerCompanyId   String?
+  warehouseId        String?
+  customerId         String?
+  parentRequestId    String?
+  suggestedTruckType TruckType?
+  suggestedTruckCount Int?
+  routePolyline      String?
+  routeDistanceKm    Float?
+  routeDurationMin   Float?
+  eta                DateTime?
+  originLat          Float?
+  originLng          Float?
+  destLat            Float?
+  destLng            Float?
+  progressPercent    Float            @default(0)
+  onTime             Boolean?
+  fuelEstimateLiters Float?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deliveredAt        DateTime?
+  arrivedAt          DateTime?
+
+  creatorCompany        Company                @relation("RequestCreator", fields: [creatorCompanyId], references: [id])
+  handlerCompany        Company?               @relation("RequestHandler", fields: [handlerCompanyId], references: [id])
+  warehouse             Warehouse?             @relation(fields: [warehouseId], references: [id])
+  customer              Customer?              @relation(fields: [customerId], references: [id])
+  parentRequest         TransportRequest?      @relation("DeliverySplit", fields: [parentRequestId], references: [id])
+  childRequests         TransportRequest[]     @relation("DeliverySplit")
+  deliveryItems         DeliveryItem[]
+  subContractAssignment SubContractAssignment?
+  tripAllocation        TripAllocation?
+  truckAssignments      TruckAssignment[]
+  deliverySplits        DeliverySplit[]
+  notifications         Notification[]
+  deliveryConfirmation  DeliveryConfirmation?
+  proofOfDelivery       ProofOfDelivery?
+  gpsHistory            GpsHistory[]
+
+  @@index([status])
+  @@index([creatorCompanyId])
+  @@index([handlerCompanyId])
+  @@index([customerId])
+  @@index([parentRequestId])
+  @@index([createdAt])
+  @@index([expectedPickupDate])
+  @@index([priority])
+}
+
+model DeliveryItem {
+  id                 String   @id @default(cuid())
+  transportRequestId String
+  productId          String
+  quantity           Int
+  totalWeight        Float
+  totalVolume        Float
+  createdAt          DateTime @default(now())
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  product          Product          @relation(fields: [productId], references: [id])
+
+  @@index([transportRequestId])
+  @@index([productId])
+}
+
+model DeliverySplit {
+  id                 String      @id @default(cuid())
+  transportRequestId String
+  companyId          String
+  assignedWeightKg   Float
+  assignedVolumeM3   Float
+  status             SplitStatus @default(PENDING)
+  notes              String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  company          Company          @relation(fields: [companyId], references: [id])
+
+  @@index([transportRequestId])
+  @@index([companyId])
+}
+
+// ─── Fleet ───────────────────────────────────────────────────────────────────
+
+model Truck {
+  id                String      @id @default(cuid())
+  truckNumber       String      @unique
+  truckNo           String?     @unique
+  truckType         TruckType
+  plateNumber       String      @unique
+  capacityWeightKg  Float
+  capacityVolumeM3  Float
+  maxBoxes          Int         @default(0)
+  maxPallet         Int         @default(0)
+  status            TruckStatus @default(AVAILABLE)
+  companyId         String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  company          Company           @relation(fields: [companyId], references: [id])
+  tripAllocations  TripAllocation[]
+  truckAssignments TruckAssignment[]
+
+  @@index([companyId])
+  @@index([status])
+  @@index([truckType])
+}
+
+model TruckAssignment {
+  id                 String           @id @default(cuid())
+  transportRequestId String
+  truckId            String?
+  driverId           String?
+  assignedWeight     Float
+  assignedQuantity   Int
+  status             AssignmentStatus @default(PENDING)
+  dispatchedAt       DateTime?
+  pickedUpAt         DateTime?
+  arrivedAt          DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  transportRequest     TransportRequest      @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  truck                Truck?                @relation(fields: [truckId], references: [id])
+  driver               Driver?               @relation(fields: [driverId], references: [id])
+  deliveryProgress       DeliveryProgress[]
+  assignmentConfirmation AssignmentConfirmation?
+
+  @@index([transportRequestId])
+  @@index([truckId])
+  @@index([driverId])
+  @@index([status])
+}
+
+model DeliveryProgress {
+  id           String   @id @default(cuid())
+  assignmentId String
+  latitude     Float
+  longitude    Float
+  speed        Float?
+  heading      Float?
+  progress     Float    @default(0)
+  etaMinutes   Float?
+  updatedAt    DateTime @default(now())
+
+  assignment TruckAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@index([updatedAt])
+}
+
+model AssignmentConfirmation {
+  id           String    @id @default(cuid())
+  assignmentId String    @unique
+  qrToken      String    @unique
+  approved     Boolean   @default(false)
+  approvedBy   String?
+  approvedAt   DateTime?
+  customerIp   String?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+
+  assignment TruckAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([qrToken])
+}
+
 model Vehicle {
-  id           String      @id @default(cuid())
-  plateNumber  String      @unique
-  vehicleType  VehicleType
-  capacity     Float
-  companyId    String
-  isAvailable  Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  plateNumber String      @unique
+  vehicleType VehicleType
+  capacity    Float
+  companyId   String
+  isAvailable Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   company         Company          @relation(fields: [companyId], references: [id])
   tripAllocations TripAllocation[]
@@ -110,58 +425,112 @@ model Vehicle {
 }
 
 model Driver {
-  id          String   @id @default(cuid())
-  name        String
-  phone       String?
-  licenseNo   String?
-  companyId   String
-  userId      String?  @unique
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String       @id @default(cuid())
+  name            String
+  phone           String?
+  licenseNo       String?
+  licenseType     LicenseType  @default(STANDARD)
+  companyId       String
+  userId          String?      @unique
+  status          DriverStatus @default(AVAILABLE)
+  isAvailable     Boolean      @default(true)
+  workingHoursStart String?    @default("08:00")
+  workingHoursEnd   String?    @default("18:00")
+  currentLat      Float?
+  currentLng      Float?
+  currentHeading  Float?
+  currentSpeed    Float?
+  lastLocationAt  DateTime?
+  rating          Float        @default(5.0)
+  totalDeliveries Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   company         Company          @relation(fields: [companyId], references: [id])
   user            User?            @relation(fields: [userId], references: [id])
-  tripAllocations TripAllocation[]
+  tripAllocations  TripAllocation[]
+  truckAssignments TruckAssignment[]
+  gpsHistory       GpsHistory[]
 
   @@index([companyId])
+  @@index([status])
   @@index([isAvailable])
 }
 
-model TransportRequest {
-  id                  String      @id @default(cuid())
-  requestNo           String      @unique
-  origin              String
-  destination         String
-  cargoType           String
-  cargoWeight         Float
-  vehicleType         VehicleType
-  vehicleCount        Int         @default(1)
-  expectedPickupDate  DateTime
-  status              OrderStatus @default(PENDING)
-  estimatedCost       Float?
-  actualCost          Float?
-  notes               String?
-  proofImageUrl       String?
-  deliveryPhotoUrl    String?
-  creatorCompanyId    String
-  handlerCompanyId    String?
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  deliveredAt         DateTime?
+model TripAllocation {
+  id                 String    @id @default(cuid())
+  transportRequestId String    @unique
+  driverId           String
+  vehicleId          String?
+  truckId            String?
+  dispatchedAt       DateTime?
+  pickedUpAt         DateTime?
+  deliveredAt        DateTime?
+  distanceTraveledKm Float?
+  fuelUsedLiters     Float?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  creatorCompany          Company                 @relation("RequestCreator", fields: [creatorCompanyId], references: [id])
-  handlerCompany          Company?                @relation("RequestHandler", fields: [handlerCompanyId], references: [id])
-  subContractAssignment   SubContractAssignment?
-  tripAllocation          TripAllocation?
-  notifications           Notification[]
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  driver           Driver           @relation(fields: [driverId], references: [id])
+  vehicle          Vehicle?         @relation(fields: [vehicleId], references: [id])
+  truck            Truck?           @relation(fields: [truckId], references: [id])
 
-  @@index([status])
-  @@index([creatorCompanyId])
-  @@index([handlerCompanyId])
-  @@index([createdAt])
-  @@index([expectedPickupDate])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([truckId])
 }
+
+// ─── GPS Tracking ────────────────────────────────────────────────────────────
+
+model GpsHistory {
+  id                 String   @id @default(cuid())
+  driverId           String
+  transportRequestId String?
+  latitude           Float
+  longitude          Float
+  speed              Float?
+  heading            Float?
+  accuracy           Float?
+  recordedAt         DateTime @default(now())
+
+  driver           Driver            @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  transportRequest TransportRequest? @relation(fields: [transportRequestId], references: [id])
+
+  @@index([driverId])
+  @@index([transportRequestId])
+  @@index([recordedAt])
+}
+
+// ─── QR Confirmation & POD ───────────────────────────────────────────────────
+
+model DeliveryConfirmation {
+  id                 String    @id @default(cuid())
+  token              String    @unique
+  transportRequestId String    @unique
+  expiresAt          DateTime
+  approvedAt         DateTime?
+  approvedBy         String?
+  customerIp         String?
+  qrGeneratedAt      DateTime  @default(now())
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+model ProofOfDelivery {
+  id                 String   @id @default(cuid())
+  transportRequestId String   @unique
+  signatureUrl       String?
+  photoUrl           String?
+  notes              String?
+  confirmedAt        DateTime @default(now())
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+}
+
+// ─── Subcontract & Notifications ───────────────────────────────────────────────
 
 model SubContractAssignment {
   id                 String   @id @default(cuid())
@@ -176,25 +545,6 @@ model SubContractAssignment {
   @@index([subcontractorId])
 }
 
-model TripAllocation {
-  id                 String    @id @default(cuid())
-  transportRequestId String    @unique
-  driverId           String
-  vehicleId          String
-  dispatchedAt       DateTime?
-  pickedUpAt         DateTime?
-  deliveredAt        DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
-  driver           Driver           @relation(fields: [driverId], references: [id])
-  vehicle          Vehicle          @relation(fields: [vehicleId], references: [id])
-
-  @@index([driverId])
-  @@index([vehicleId])
-}
-
 model Notification {
   id                 String           @id @default(cuid())
   type               NotificationType
@@ -204,6 +554,7 @@ model Notification {
   companyId          String?
   transportRequestId String?
   isRead             Boolean          @default(false)
+  metadata           Json?
   createdAt          DateTime         @default(now())
 
   user             User?             @relation(fields: [userId], references: [id])
