@@ -5,6 +5,10 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as amplify from 'aws-cdk-lib/aws-amplify';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 export class MtmsStack extends cdk.Stack {
@@ -144,6 +148,31 @@ frontend:
       enableAutoBuild: true,
       framework: 'Next.js - SSR',
       stage: 'PRODUCTION',
+    });
+
+    // Lambda: GPS history archival / batch processing
+    const gpsProcessor = new lambda.Function(this, 'GpsHistoryProcessor', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromInline(`
+        exports.handler = async (event) => {
+          console.log('GPS batch processor', JSON.stringify(event));
+          return { statusCode: 200, body: 'processed' };
+        };
+      `),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        DATABASE_SECRET_ARN: dbCredentials.secretArn,
+      },
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    dbCredentials.grantRead(gpsProcessor);
+
+    new events.Rule(this, 'GpsProcessorSchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      targets: [new targets.LambdaFunction(gpsProcessor)],
     });
 
     // Outputs

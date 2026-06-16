@@ -6,6 +6,7 @@ import { StatusTable } from '@/components/tables/status-table';
 
 const navItems = [
   { href: '/maruichi', labelKey: 'nav.requests' as const },
+  { href: '/maruichi/monitor', labelKey: 'nav.monitor' as const },
   { href: '/maruichi/analytics', labelKey: 'nav.analytics' as const },
   { href: '/maruichi/history', labelKey: 'nav.history' as const },
 ];
@@ -19,8 +20,13 @@ type Request = {
   updatedAt: Date;
   tripAllocation?: {
     driver: { name: string };
-    vehicle: { plateNumber: string };
+    vehicle?: { plateNumber: string } | null;
+    truck?: { plateNumber: string; truckNo?: string | null } | null;
   } | null;
+  truckAssignments?: {
+    driver?: { name: string } | null;
+    truck?: { truckNo: string | null; plateNumber: string } | null;
+  }[];
 };
 
 export function MaruichiPageClient({ requests }: { requests: Request[] }) {

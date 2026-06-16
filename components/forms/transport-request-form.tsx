@@ -8,17 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { VehicleType } from '@prisma/client';
 import { useTranslation } from '@/lib/i18n/context';
-import type { TranslationKey } from '@/lib/i18n';
+import {
+  WAREHOUSE_LOCATIONS,
+  DESTINATION_LOCATIONS,
+  DEFAULT_BOX_WEIGHT_KG,
+} from '@/lib/tms/locations';
 import { Plus } from 'lucide-react';
 
 export function TransportRequestForm() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [boxCount, setBoxCount] = useState(1);
+  const [formKey, setFormKey] = useState(0);
+
+  const lang = locale === 'ja' ? 'ja' : 'en';
 
   async function handleSubmit(formData: FormData) {
     setError(null);
@@ -26,18 +33,15 @@ export function TransportRequestForm() {
     startTransition(async () => {
       const result = await createTransportRequest(formData);
       if (result.success) {
+        // Remount the form to clear uncontrolled inputs after submit.
         setSuccess(true);
+        setBoxCount(1);
+        setFormKey((k) => k + 1);
         router.refresh();
       } else {
         setError(result.error ?? t('form.submitError'));
       }
     });
-  }
-
-  function vehicleLabel(type: string) {
-    const key = `vehicle.${type}` as TranslationKey;
-    const translated = t(key);
-    return translated === key ? type.replace(/_/g, ' ') : translated;
   }
 
   return (
@@ -49,19 +53,27 @@ export function TransportRequestForm() {
         </div>
       </CardHeader>
       <CardContent>
-        <form action={handleSubmit} className="grid gap-5 md:grid-cols-2">
+        <form key={formKey} action={handleSubmit} className="grid gap-5 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="origin">{t('form.origin')}</Label>
-            <Input id="origin" name="origin" placeholder={t('form.originPlaceholder')} required />
+            <Label htmlFor="originLocationId">{t('form.origin')}</Label>
+            <Select id="originLocationId" name="originLocationId" required defaultValue="tokyo-wh">
+              {WAREHOUSE_LOCATIONS.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {lang === 'ja' ? loc.labelJa : loc.labelEn}
+                </option>
+              ))}
+            </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="destination">{t('form.destination')}</Label>
-            <Input
-              id="destination"
-              name="destination"
-              placeholder={t('form.destinationPlaceholder')}
-              required
-            />
+            <Label htmlFor="destinationLocationId">{t('form.destination')}</Label>
+            <Select id="destinationLocationId" name="destinationLocationId" required>
+              <option value="">{t('form.selectDestination')}</option>
+              {DESTINATION_LOCATIONS.map((loc) => (
+                <option key={loc.id} value={loc.id}>
+                  {lang === 'ja' ? loc.labelJa : loc.labelEn}
+                </option>
+              ))}
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="cargoType">{t('form.cargoType')}</Label>
@@ -73,30 +85,21 @@ export function TransportRequestForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cargoWeight">{t('form.cargoWeight')}</Label>
-            <Input id="cargoWeight" name="cargoWeight" type="number" step="0.1" min="0.1" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="vehicleType">{t('form.vehicleType')}</Label>
-            <Select id="vehicleType" name="vehicleType" required>
-              {Object.values(VehicleType).map((type) => (
-                <option key={type} value={type}>
-                  {vehicleLabel(type)}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="vehicleCount">{t('form.vehicleCount')}</Label>
+            <Label htmlFor="totalBoxes">{t('form.totalBoxes')}</Label>
             <Input
-              id="vehicleCount"
-              name="vehicleCount"
+              id="totalBoxes"
+              name="totalBoxes"
               type="number"
               min="1"
-              max="10"
-              defaultValue="1"
+              step="1"
+              value={boxCount}
+              onChange={(e) => setBoxCount(Math.max(1, parseInt(e.target.value, 10) || 1))}
               required
             />
+            <p className="text-xs text-muted-foreground">
+              {t('form.estimatedWeight')}: ~{boxCount * DEFAULT_BOX_WEIGHT_KG} kg —{' '}
+              {t('form.carrierAssignsTrucks')}
+            </p>
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="expectedPickupDate">{t('form.expectedPickupDate')}</Label>

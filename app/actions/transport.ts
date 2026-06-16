@@ -5,22 +5,28 @@ import { z } from 'zod';
 import {
   OrderStatus,
   NotificationType,
-  VehicleType,
   CompanyType,
+  DriverStatus,
+  TruckStatus,
 } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/session';
 import { generateRequestNo } from '@/lib/utils';
 import { emitNotificationEvent } from '@/lib/sse/emitter';
 import { ActionResult } from '@/types';
+import {
+  getLocationById,
+  locationLabel,
+  estimateWeightFromBoxes,
+  DEFAULT_BOX_WEIGHT_KG,
+} from '@/lib/tms/locations';
+import { calculateRoute } from '@/lib/tms/routing';
 
 const createRequestSchema = z.object({
-  origin: z.string().min(1, 'Origin is required'),
-  destination: z.string().min(1, 'Destination is required'),
+  originLocationId: z.string().min(1, 'Origin is required'),
+  destinationLocationId: z.string().min(1, 'Destination is required'),
   cargoType: z.string().min(1, 'Cargo type is required'),
-  cargoWeight: z.coerce.number().positive('Weight must be positive'),
-  vehicleType: z.nativeEnum(VehicleType),
-  vehicleCount: z.coerce.number().int().min(1).max(10),
+  totalBoxes: z.coerce.number().int().positive('Box count must be at least 1'),
   expectedPickupDate: z.string().min(1, 'Pickup date is required'),
   notes: z.string().optional(),
 });
@@ -32,18 +38,25 @@ export async function createTransportRequest(
     const session = await requireRole(['MARUICHI_STAFF']);
 
     const parsed = createRequestSchema.safeParse({
-      origin: formData.get('origin'),
-      destination: formData.get('destination'),
+      originLocationId: formData.get('originLocationId'),
+      destinationLocationId: formData.get('destinationLocationId'),
       cargoType: formData.get('cargoType'),
-      cargoWeight: formData.get('cargoWeight'),
-      vehicleType: formData.get('vehicleType'),
-      vehicleCount: formData.get('vehicleCount'),
+      totalBoxes: formData.get('totalBoxes'),
       expectedPickupDate: formData.get('expectedPickupDate'),
       notes: formData.get('notes'),
     });
 
     if (!parsed.success) {
       return { success: false, error: parsed.error.errors[0]?.message ?? 'Invalid input' };
+    }
+
+    const originLoc = getLocationById(parsed.data.originLocationId);
+    const destLoc = getLocationById(parsed.data.destinationLocationId);
+    if (!originLoc || !destLoc) {
+      return { success: false, error: 'Invalid origin or destination' };
+    }
+    if (originLoc.id === destLoc.id) {
+      return { success: false, error: 'Origin and destination must be different' };
     }
 
     const shinwa = await prisma.company.findFirst({
@@ -54,20 +67,89 @@ export async function createTransportRequest(
       return { success: false, error: 'Shinwa company not configured' };
     }
 
+    // Demo reset: keep one "working" shipment at a time.
+    // When Maruichi creates a new request, remove any previous in-progress requests created today
+    // and reset carrier/subcontractor fleet availability.
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const requestsToClear = await prisma.transportRequest.findMany({
+      where: {
+        creatorCompanyId: session.user.companyId,
+        createdAt: { gte: todayStart },
+      },
+      select: { id: true },
+    });
+
+    const requestIdsToClear = requestsToClear.map((r) => r.id);
+
+    if (requestIdsToClear.length > 0) {
+      const carrierCompanies = await prisma.company.findMany({
+        where: { type: { in: [CompanyType.SHINWA, CompanyType.SUBCONTRACTOR] } },
+        select: { id: true },
+      });
+
+      const companyIds = carrierCompanies.map((c) => c.id);
+
+      await prisma.$transaction([
+        prisma.gpsHistory.deleteMany({
+          where: { transportRequestId: { in: requestIdsToClear } },
+        }),
+        prisma.transportRequest.deleteMany({
+          where: { id: { in: requestIdsToClear } },
+        }),
+        prisma.driver.updateMany({
+          where: { companyId: { in: companyIds } },
+          data: {
+            isAvailable: true,
+            status: DriverStatus.AVAILABLE,
+            currentLat: null,
+            currentLng: null,
+            currentHeading: null,
+            currentSpeed: null,
+            lastLocationAt: null,
+          },
+        }),
+        prisma.truck.updateMany({
+          where: { companyId: { in: companyIds } },
+          data: { status: TruckStatus.AVAILABLE },
+        }),
+        prisma.vehicle.updateMany({
+          where: { companyId: { in: companyIds } },
+          data: { isAvailable: true },
+        }),
+      ]);
+    }
+
+    const totalBoxes = parsed.data.totalBoxes;
+    const cargoWeight = estimateWeightFromBoxes(totalBoxes);
+    const originCoords = { lat: originLoc.lat, lng: originLoc.lng };
+    const destCoords = { lat: destLoc.lat, lng: destLoc.lng };
+    const route = await calculateRoute(originCoords, destCoords);
+
     const request = await prisma.transportRequest.create({
       data: {
         requestNo: generateRequestNo(),
-        origin: parsed.data.origin,
-        destination: parsed.data.destination,
+        origin: locationLabel(originLoc, 'ja'),
+        destination: locationLabel(destLoc, 'ja'),
         cargoType: parsed.data.cargoType,
-        cargoWeight: parsed.data.cargoWeight,
-        vehicleType: parsed.data.vehicleType,
-        vehicleCount: parsed.data.vehicleCount,
+        cargoWeight,
+        totalQuantity: totalBoxes,
+        cargoVolume: totalBoxes * 0.02,
         expectedPickupDate: new Date(parsed.data.expectedPickupDate),
         notes: parsed.data.notes,
         creatorCompanyId: session.user.companyId,
+        createdById: session.user.id,
         handlerCompanyId: shinwa.id,
-        estimatedCost: parsed.data.cargoWeight * 50,
+        estimatedCost: cargoWeight * 50,
+        originLat: originCoords.lat,
+        originLng: originCoords.lng,
+        destLat: destCoords.lat,
+        destLng: destCoords.lng,
+        routePolyline: route.polyline,
+        routeDistanceKm: route.distanceKm,
+        routeDurationMin: route.durationMin,
+        eta: route.eta,
       },
     });
 
@@ -84,8 +166,13 @@ export async function createTransportRequest(
     await emitNotificationEvent(shinwa.id, {
       type: NotificationType.NEW_REQUEST,
       title: 'New Transport Request Received',
-      message: `Request ${request.requestNo}: ${parsed.data.origin} → ${parsed.data.destination}`,
-      data: { requestId: request.id, requestNo: request.requestNo },
+      message: `Request ${request.requestNo}: ${totalBoxes} boxes — ${locationLabel(originLoc, 'ja')} → ${locationLabel(destLoc, 'ja')}`,
+      data: {
+        requestId: request.id,
+        requestNo: request.requestNo,
+        totalBoxes,
+        estimatedWeightKg: cargoWeight,
+      },
     });
 
     revalidatePath('/maruichi');
@@ -101,6 +188,14 @@ export async function createTransportRequest(
 export async function acceptOrder(requestId: string): Promise<ActionResult> {
   try {
     const session = await requireRole(['SHINWA_STAFF']);
+
+    const availableTruckCount = await prisma.truck.count({
+      where: { companyId: session.user.companyId, status: TruckStatus.AVAILABLE },
+    });
+
+    if (availableTruckCount <= 0) {
+      return { success: false, error: 'No available trucks for allocation' };
+    }
 
     const request = await prisma.transportRequest.update({
       where: { id: requestId, status: OrderStatus.PENDING },
@@ -177,7 +272,8 @@ export async function rejectOrder(requestId: string): Promise<ActionResult> {
 const assignFleetSchema = z.object({
   requestId: z.string(),
   driverId: z.string(),
-  vehicleId: z.string(),
+  vehicleId: z.string().optional(),
+  truckId: z.string().optional(),
 });
 
 export async function assignFleet(formData: FormData): Promise<ActionResult> {
@@ -187,14 +283,18 @@ export async function assignFleet(formData: FormData): Promise<ActionResult> {
     const parsed = assignFleetSchema.safeParse({
       requestId: formData.get('requestId'),
       driverId: formData.get('driverId'),
-      vehicleId: formData.get('vehicleId'),
+      vehicleId: formData.get('vehicleId') || undefined,
+      truckId: formData.get('truckId') || undefined,
     });
 
     if (!parsed.success) {
       return { success: false, error: 'Invalid fleet assignment data' };
     }
 
-    const { requestId, driverId, vehicleId } = parsed.data;
+    const { requestId, driverId, vehicleId, truckId } = parsed.data;
+    if (!vehicleId && !truckId) {
+      return { success: false, error: 'Truck or vehicle required' };
+    }
 
     const [request, trip] = await prisma.$transaction([
       prisma.transportRequest.update({
@@ -208,16 +308,33 @@ export async function assignFleet(formData: FormData): Promise<ActionResult> {
         },
       }),
       prisma.tripAllocation.create({
-        data: { transportRequestId: requestId, driverId, vehicleId },
+        data: {
+          transportRequestId: requestId,
+          driverId,
+          vehicleId: vehicleId ?? null,
+          truckId: truckId ?? null,
+        },
       }),
       prisma.driver.update({
         where: { id: driverId },
-        data: { isAvailable: false },
+        data: { isAvailable: false, status: DriverStatus.DRIVING },
       }),
-      prisma.vehicle.update({
-        where: { id: vehicleId },
-        data: { isAvailable: false },
-      }),
+      ...(vehicleId
+        ? [
+            prisma.vehicle.update({
+              where: { id: vehicleId },
+              data: { isAvailable: false },
+            }),
+          ]
+        : []),
+      ...(truckId
+        ? [
+            prisma.truck.update({
+              where: { id: truckId },
+              data: { status: TruckStatus.IN_USE },
+            }),
+          ]
+        : []),
     ]);
 
     const driver = await prisma.driver.findUnique({ where: { id: driverId } });
@@ -388,7 +505,7 @@ export async function subcontractorAssignFleet(
 
 export async function updateDeliveryStatus(
   requestId: string,
-  status: 'DISPATCHED' | 'PICKED_UP' | 'DELIVERED'
+  status: 'DISPATCHED' | 'PICKED_UP' | 'ARRIVED' | 'DELIVERED'
 ): Promise<ActionResult> {
   try {
     const session = await requireRole(['DRIVER']);
@@ -423,10 +540,34 @@ export async function updateDeliveryStatus(
         where: { id: trip.id },
         data: { dispatchedAt: now },
       });
+      await emitNotificationEvent(trip.transportRequest.creatorCompanyId, {
+        type: NotificationType.STATUS_UPDATE,
+        title: 'Dispatched',
+        message: `Request ${trip.transportRequest.requestNo} dispatched`,
+        data: { requestId },
+      });
     } else if (status === 'PICKED_UP') {
       await prisma.tripAllocation.update({
         where: { id: trip.id },
         data: { pickedUpAt: now },
+      });
+      await emitNotificationEvent(trip.transportRequest.creatorCompanyId, {
+        type: NotificationType.STATUS_UPDATE,
+        title: 'Picked Up',
+        message: `Request ${trip.transportRequest.requestNo} picked up`,
+        data: { requestId },
+      });
+    } else if (status === 'ARRIVED') {
+      updateData.arrivedAt = now;
+      await prisma.transportRequest.update({
+        where: { id: requestId },
+        data: { arrivedAt: now, status: OrderStatus.ARRIVED },
+      });
+      await emitNotificationEvent(trip.transportRequest.creatorCompanyId, {
+        type: NotificationType.ARRIVED_AT_DESTINATION,
+        title: 'Arrived at Destination',
+        message: `Request ${trip.transportRequest.requestNo} has arrived`,
+        data: { requestId },
       });
     } else if (status === 'DELIVERED') {
       updateData.deliveredAt = now;
@@ -436,12 +577,20 @@ export async function updateDeliveryStatus(
       });
       await prisma.driver.update({
         where: { id: driver.id },
-        data: { isAvailable: true },
+        data: { isAvailable: true, status: DriverStatus.AVAILABLE },
       });
-      await prisma.vehicle.update({
-        where: { id: trip.vehicleId },
-        data: { isAvailable: true },
-      });
+      if (trip.vehicleId) {
+        await prisma.vehicle.update({
+          where: { id: trip.vehicleId },
+          data: { isAvailable: true },
+        });
+      }
+      if (trip.truckId) {
+        await prisma.truck.update({
+          where: { id: trip.truckId },
+          data: { status: TruckStatus.AVAILABLE },
+        });
+      }
 
       await prisma.notification.create({
         data: {

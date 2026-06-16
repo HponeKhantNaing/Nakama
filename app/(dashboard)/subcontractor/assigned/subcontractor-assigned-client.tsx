@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { subcontractorAssignFleet } from '@/app/actions/transport';
+import { createTruckAssignment } from '@/app/actions/fleet';
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
 import { StatusTable } from '@/components/tables/status-table';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 
 const navItems = [
   { href: '/subcontractor/assigned', labelKey: 'nav.assignedOrders' as const },
@@ -29,33 +30,64 @@ type Request = {
   destination: string;
   status: string;
   updatedAt: Date;
+  cargoWeight: number;
+  totalQuantity: number;
   tripAllocation?: {
     driver: { name: string };
-    vehicle: { plateNumber: string };
+    vehicle?: { plateNumber: string } | null;
+    truck?: { plateNumber: string } | null;
   } | null;
 };
 
-type Driver = { id: string; name: string };
-type Vehicle = { id: string; plateNumber: string };
+type Driver = { id: string; name: string; isAvailable: boolean };
+type Truck = {
+  id: string;
+  truckNo: string | null;
+  truckType: string;
+  capacityWeightKg: number;
+  maxBoxes: number;
+  status: string;
+};
 
 function AssignFleetButton({
-  requestId,
+  request,
   drivers,
-  vehicles,
+  trucks,
 }: {
-  requestId: string;
+  request: Request;
   drivers: Driver[];
-  vehicles: Vehicle[];
+  trucks: Truck[];
 }) {
   const router = useRouter();
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const availableDrivers = drivers.filter((d) => d.isAvailable);
+  const availableTrucks = trucks.filter((tr) => tr.status === 'AVAILABLE');
+
+  function truckLabel(type: string) {
+    const key = `truck.${type}` as TranslationKey;
+    const translated = t(key);
+    return translated === key ? type.replace(/_/g, ' ') : translated;
+  }
+
   async function handleSubmit(formData: FormData) {
-    formData.set('requestId', requestId);
+    const requestId = request.id;
+    const truckId = formData.get('truckId');
+    const driverId = formData.get('driverId');
+
+    if (!truckId || !driverId || typeof truckId !== 'string' || typeof driverId !== 'string') return;
+
     startTransition(async () => {
-      const result = await subcontractorAssignFleet(formData);
+      const result = await createTruckAssignment({
+        requestId,
+        truckId,
+        driverId,
+        assignedWeight: request.cargoWeight,
+        assignedQuantity: request.totalQuantity,
+      });
+
       if (result.success) {
         setOpen(false);
         router.refresh();
@@ -77,7 +109,7 @@ function AssignFleetButton({
             <Label htmlFor="driverId">{t('table.driver')}</Label>
             <Select id="driverId" name="driverId" required>
               <option value="">{t('shinwa.selectDriver')}</option>
-              {drivers.map((d) => (
+              {availableDrivers.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>
@@ -85,12 +117,12 @@ function AssignFleetButton({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="vehicleId">{t('table.vehicle')}</Label>
-            <Select id="vehicleId" name="vehicleId" required>
+            <Label htmlFor="truckId">{t('table.vehicle')}</Label>
+            <Select id="truckId" name="truckId" required>
               <option value="">{t('shinwa.selectVehicle')}</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.plateNumber}
+              {availableTrucks.map((tr) => (
+                <option key={tr.id} value={tr.id}>
+                  {tr.truckNo} — {truckLabel(tr.truckType)} ({tr.maxBoxes} boxes)
                 </option>
               ))}
             </Select>
@@ -107,11 +139,11 @@ function AssignFleetButton({
 export function SubcontractorAssignedClient({
   requests,
   drivers,
-  vehicles,
+  trucks,
 }: {
   requests: Request[];
   drivers: Driver[];
-  vehicles: Vehicle[];
+  trucks: Truck[];
 }) {
   return (
     <DashboardShell titleKey="dashboard.subcontractor" navItems={navItems}>
@@ -121,7 +153,7 @@ export function SubcontractorAssignedClient({
           requests={requests}
           actions={(req) =>
             req.status === 'SUBCONTRACTED' ? (
-              <AssignFleetButton requestId={req.id} drivers={drivers} vehicles={vehicles} />
+              <AssignFleetButton request={req as Request} drivers={drivers} trucks={trucks} />
             ) : null
           }
         />

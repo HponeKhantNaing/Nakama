@@ -54,7 +54,6 @@ Tablet:  http://192.168.1.42:3000
 ```
 
 Open that address on your phone or tablet browser. Both devices must be on the same Wi-Fi network as your computer.
-
 ## Demo Accounts
 
 | Email | Role | Password |

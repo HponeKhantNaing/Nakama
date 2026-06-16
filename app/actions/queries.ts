@@ -2,19 +2,36 @@
 
 import prisma from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/session';
-import { OrderStatus, CompanyType } from '@prisma/client';
+import { OrderStatus, CompanyType, AssignmentStatus } from '@prisma/client';
 import { AnalyticsData } from '@/types';
 import { startOfMonth, subMonths, format } from 'date-fns';
+import { computeRequestStatus, calculateRequestProgress, calculateRemaining, calculateAllocationRemaining } from '@/lib/tms/request-compute';
 
 const requestInclude = {
   creatorCompany: { select: { id: true, name: true } },
   handlerCompany: { select: { id: true, name: true } },
+  customer: { select: { id: true, name: true, address: true, phone: true, latitude: true, longitude: true } },
+  proofOfDelivery: true,
+  deliveryConfirmation: true,
   tripAllocation: {
     include: {
-      driver: { select: { id: true, name: true, phone: true } },
+      driver: { select: { id: true, name: true, phone: true, currentLat: true, currentLng: true } },
       vehicle: { select: { id: true, plateNumber: true, vehicleType: true } },
+      truck: { select: { id: true, plateNumber: true, truckNo: true, truckType: true } },
     },
   },
+  truckAssignments: {
+    where: { status: { not: AssignmentStatus.CANCELLED } },
+    include: {
+      truck: { select: { id: true, truckNo: true, truckType: true, plateNumber: true } },
+      driver: { select: { id: true, name: true, phone: true, currentLat: true, currentLng: true } },
+      deliveryProgress: { orderBy: { updatedAt: 'desc' as const }, take: 1 },
+      assignmentConfirmation: {
+        select: { approved: true, approvedAt: true, approvedBy: true, expiresAt: true },
+      },
+    },
+  },
+  deliveryItems: { include: { product: true } },
   subContractAssignment: {
     include: {
       subcontractor: { select: { id: true, name: true } },
@@ -44,6 +61,7 @@ export async function getShinwaIncomingOrders() {
           status: {
             in: [
               OrderStatus.SHINWA_ACCEPTED,
+              OrderStatus.SPLIT,
               OrderStatus.DRIVER_ASSIGNED,
               OrderStatus.DISPATCHED,
               OrderStatus.PICKED_UP,
@@ -57,9 +75,221 @@ export async function getShinwaIncomingOrders() {
   });
 }
 
+type ShinwaBoardFilter =
+  | 'all'
+  | 'active'
+  | 'completed'
+  | 'pending'
+  | 'assigned'
+  | 'in_transit'
+  | 'delivered'
+  | 'cancelled'
+  | 'today';
+
+function shinwaStatusWhere(filter: ShinwaBoardFilter) {
+  if (filter === 'active')
+    return {
+      status: { notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+    };
+  if (filter === 'completed')
+    return {
+      status: { in: [OrderStatus.DELIVERED, OrderStatus.CANCELLED] },
+    };
+  if (filter === 'pending') return { status: OrderStatus.PENDING };
+  if (filter === 'delivered') return { status: OrderStatus.DELIVERED };
+  if (filter === 'cancelled') return { status: OrderStatus.CANCELLED };
+  if (filter === 'assigned')
+    return {
+      status: {
+        in: [
+          OrderStatus.SHINWA_ACCEPTED,
+          OrderStatus.SPLIT,
+          OrderStatus.DRIVER_ASSIGNED,
+        ],
+      },
+    };
+  if (filter === 'in_transit')
+    return {
+      status: {
+        in: [
+          OrderStatus.DISPATCHED,
+          OrderStatus.PICKED_UP,
+          OrderStatus.IN_TRANSIT,
+          OrderStatus.ARRIVED,
+          OrderStatus.AWAITING_CONFIRMATION,
+        ],
+      },
+    };
+  return {};
+}
+
+export async function getShinwaDeliveryBoard(input?: {
+  filter?: ShinwaBoardFilter;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}) {
+  await requireRole(['SHINWA_STAFF']);
+
+  const filter = input?.filter ?? 'all';
+  const pageSize = Math.min(100, Math.max(5, input?.pageSize ?? 50));
+  const page = Math.max(1, input?.page ?? 1);
+  const search = (input?.search ?? '').trim();
+
+  const shinwaCompanyId = (
+    await prisma.company.findFirst({ where: { type: CompanyType.SHINWA } })
+  )?.id;
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const where = {
+    handlerCompanyId: shinwaCompanyId,
+    ...(filter === 'today' ? { createdAt: { gte: todayStart } } : {}),
+    ...shinwaStatusWhere(filter),
+    ...(search
+      ? {
+          OR: [
+            { requestNo: { contains: search, mode: 'insensitive' as const } },
+            { origin: { contains: search, mode: 'insensitive' as const } },
+            { destination: { contains: search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [total, requests] = await Promise.all([
+    prisma.transportRequest.count({ where }),
+    prisma.transportRequest.findMany({
+      where,
+      include: requestInclude,
+      orderBy:
+        filter === 'completed' || filter === 'delivered'
+          ? [{ deliveredAt: 'desc' }, { updatedAt: 'desc' }]
+          : { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ]);
+
+  // Compute derived status/progress/remaining based on ALL assignments (do not trust single-assignment UI)
+  const computedRequests = await Promise.all(
+    requests.map(async (r: any) => {
+      const assignments = r.truckAssignments ?? [];
+      const computedStatus = computeRequestStatus({
+        requestStatus: r.status,
+        assignments,
+        totalQuantity: r.totalQuantity,
+        totalWeight: r.cargoWeight,
+      });
+      const computedProgress = calculateRequestProgress({
+        totalWeight: r.cargoWeight,
+        assignments,
+      });
+      const remaining = calculateRemaining({
+        totalWeight: r.cargoWeight,
+        totalQuantity: r.totalQuantity,
+        assignments,
+      });
+      const allocation = calculateAllocationRemaining({
+        totalWeight: r.cargoWeight,
+        totalQuantity: r.totalQuantity,
+        assignments,
+      });
+
+      if (computedStatus !== r.status || computedProgress !== (r.progressPercent ?? 0)) {
+        await prisma.transportRequest.update({
+          where: { id: r.id },
+          data: {
+            status: computedStatus,
+            progressPercent: computedProgress,
+            deliveredAt: computedStatus === OrderStatus.DELIVERED ? r.deliveredAt ?? new Date() : null,
+          },
+        });
+      }
+
+      return {
+        ...r,
+        status: computedStatus,
+        computedStatus,
+        computedProgress,
+        progressPercent: computedProgress,
+        ...remaining,
+        ...allocation,
+      };
+    })
+  );
+
+  const filteredRequests =
+    filter === 'completed'
+      ? computedRequests.filter(
+          (r) => r.computedStatus === OrderStatus.DELIVERED || r.computedStatus === OrderStatus.CANCELLED
+        )
+      : filter === 'active'
+        ? computedRequests.filter(
+            (r) =>
+              r.computedStatus !== OrderStatus.DELIVERED && r.computedStatus !== OrderStatus.CANCELLED
+          )
+        : computedRequests;
+
+  // Stats across ALL Shinwa-handled requests (not just current page)
+  const allWhereBase = { handlerCompanyId: shinwaCompanyId };
+  const [pending, delivered, cancelled] = await Promise.all([
+    prisma.transportRequest.count({
+      where: { ...allWhereBase, status: OrderStatus.PENDING },
+    }),
+    prisma.transportRequest.count({
+      where: { ...allWhereBase, status: OrderStatus.DELIVERED },
+    }),
+    prisma.transportRequest.count({
+      where: { ...allWhereBase, status: OrderStatus.CANCELLED },
+    }),
+  ]);
+
+  const assigned = await prisma.transportRequest.count({
+    where: {
+      ...allWhereBase,
+      status: {
+        in: [OrderStatus.SHINWA_ACCEPTED, OrderStatus.SPLIT, OrderStatus.DRIVER_ASSIGNED],
+      },
+    },
+  });
+
+  const inTransit = await prisma.transportRequest.count({
+    where: {
+      ...allWhereBase,
+      status: {
+        in: [
+          OrderStatus.DISPATCHED,
+          OrderStatus.PICKED_UP,
+          OrderStatus.IN_TRANSIT,
+          OrderStatus.ARRIVED,
+          OrderStatus.AWAITING_CONFIRMATION,
+        ],
+      },
+    },
+  });
+
+  return {
+    requests: filteredRequests,
+    page,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    stats: {
+      total: await prisma.transportRequest.count({ where: allWhereBase }),
+      pending,
+      assigned,
+      inTransit,
+      delivered,
+      cancelled,
+    },
+  };
+}
+
 export async function getShinwaFleet() {
   const session = await requireRole(['SHINWA_STAFF']);
-  const [vehicles, drivers] = await Promise.all([
+  const [vehicles, drivers, trucks] = await Promise.all([
     prisma.vehicle.findMany({
       where: { companyId: session.user.companyId },
       orderBy: { plateNumber: 'asc' },
@@ -69,8 +299,12 @@ export async function getShinwaFleet() {
       include: { user: { select: { email: true } } },
       orderBy: { name: 'asc' },
     }),
+    prisma.truck.findMany({
+      where: { companyId: session.user.companyId },
+      orderBy: { truckNumber: 'asc' },
+    }),
   ]);
-  return { vehicles, drivers };
+  return { vehicles, drivers, trucks };
 }
 
 export async function getSubcontractors() {
@@ -94,17 +328,17 @@ export async function getSubcontractorOrders() {
 
 export async function getSubcontractorFleet() {
   const session = await requireRole(['SUBCONTRACTOR_STAFF']);
-  const [vehicles, drivers] = await Promise.all([
-    prisma.vehicle.findMany({
-      where: { companyId: session.user.companyId },
-      orderBy: { plateNumber: 'asc' },
-    }),
+  const [drivers, trucks] = await Promise.all([
     prisma.driver.findMany({
-      where: { companyId: session.user.companyId, isAvailable: true },
+      where: { companyId: session.user.companyId },
       orderBy: { name: 'asc' },
     }),
+    prisma.truck.findMany({
+      where: { companyId: session.user.companyId },
+      orderBy: { truckNumber: 'asc' },
+    }),
   ]);
-  return { vehicles, drivers };
+  return { drivers, trucks };
 }
 
 export async function getDriverActiveJob() {
@@ -114,18 +348,53 @@ export async function getDriverActiveJob() {
   });
   if (!driver) return null;
 
+  // Important: requestInclude loads *all* truckAssignments.
+  // For a split/multi-truck request, the first assignment may belong to a different driver,
+  // which would cause "Assignment not found" when the driver tries to update status.
+  // So for the driver view, only include assignments that belong to the logged-in driver.
+  const driverRequestInclude = {
+    ...requestInclude,
+    truckAssignments: {
+      where: { driverId: driver.id, status: { not: AssignmentStatus.CANCELLED } },
+      include: requestInclude.truckAssignments.include,
+    },
+  } as const;
+
   return prisma.transportRequest.findFirst({
     where: {
-      tripAllocation: { driverId: driver.id },
-      status: {
-        in: [
-          OrderStatus.DRIVER_ASSIGNED,
-          OrderStatus.DISPATCHED,
-          OrderStatus.PICKED_UP,
-        ],
-      },
+      OR: [
+        {
+          tripAllocation: { driverId: driver.id },
+          status: {
+            in: [
+              OrderStatus.DRIVER_ASSIGNED,
+              OrderStatus.DISPATCHED,
+              OrderStatus.PICKED_UP,
+              OrderStatus.IN_TRANSIT,
+              OrderStatus.ARRIVED,
+              OrderStatus.AWAITING_CONFIRMATION,
+            ],
+          },
+        },
+        {
+          truckAssignments: {
+            some: {
+              driverId: driver.id,
+              status: {
+                in: [
+                  AssignmentStatus.ASSIGNED,
+                  AssignmentStatus.DISPATCHED,
+                  AssignmentStatus.PICKED_UP,
+                  AssignmentStatus.IN_TRANSIT,
+                  AssignmentStatus.ARRIVED,
+                ],
+              },
+            },
+          },
+        },
+      ],
     },
-    include: requestInclude,
+    include: driverRequestInclude,
   });
 }
 
@@ -136,15 +405,79 @@ export async function getDriverHistory() {
   });
   if (!driver) return [];
 
+  const driverRequestInclude = {
+    ...requestInclude,
+    truckAssignments: {
+      where: { driverId: driver.id, status: { not: AssignmentStatus.CANCELLED } },
+      include: requestInclude.truckAssignments.include,
+    },
+  } as const;
+
   return prisma.transportRequest.findMany({
     where: {
-      tripAllocation: { driverId: driver.id },
-      status: OrderStatus.DELIVERED,
+      OR: [
+        { tripAllocation: { driverId: driver.id }, status: OrderStatus.DELIVERED },
+        {
+          truckAssignments: {
+            some: { driverId: driver.id, status: AssignmentStatus.DELIVERED },
+          },
+        },
+      ],
     },
-    include: requestInclude,
+    include: driverRequestInclude,
     orderBy: { deliveredAt: 'desc' },
     take: 20,
   });
+}
+
+export async function getDriverDashboardData() {
+  const session = await requireRole(['DRIVER']);
+  const driver = await prisma.driver.findFirst({
+    where: { userId: session.user.id },
+    include: { company: { select: { name: true } } },
+  });
+  if (!driver) return { driver: null, activeJob: null, history: [], stats: null, notifications: [] };
+
+  const [activeJob, history, notifications] = await Promise.all([
+    getDriverActiveJob(),
+    getDriverHistory(),
+    getNotifications(),
+  ]);
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const deliveredToday = await prisma.truckAssignment.count({
+    where: { driverId: driver.id, status: AssignmentStatus.DELIVERED, deliveredAt: { gte: todayStart } },
+  });
+  const activeCount = activeJob ? 1 : 0;
+
+  const boxesDeliveredTodayAgg = await prisma.truckAssignment.aggregate({
+    where: { driverId: driver.id, status: AssignmentStatus.DELIVERED, deliveredAt: { gte: todayStart } },
+    _sum: { assignedQuantity: true, assignedWeight: true },
+  });
+
+  return {
+    driver: {
+      id: driver.id,
+      name: driver.name,
+      phone: driver.phone,
+      licenseType: driver.licenseType,
+      status: driver.status,
+      rating: driver.rating,
+      companyName: driver.company.name,
+    },
+    activeJob,
+    history,
+    notifications,
+    stats: {
+      completedDeliveries: deliveredToday,
+      activeDeliveries: activeCount,
+      pendingDeliveries: 0,
+      totalBoxesDelivered: boxesDeliveredTodayAgg._sum.assignedQuantity ?? 0,
+      totalWeightDelivered: Math.round(boxesDeliveredTodayAgg._sum.assignedWeight ?? 0),
+    },
+  };
 }
 
 export async function getNotifications() {
@@ -261,5 +594,56 @@ export async function getMaruichiHistory() {
     },
     include: requestInclude,
     orderBy: { updatedAt: 'desc' },
+  });
+}
+
+export async function getActiveFleetMonitor(filter: 'today' | 'in_transit' | 'delivered' = 'in_transit') {
+  const session = await requireRole(['MARUICHI_STAFF']);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const inTransitStatuses = [
+    OrderStatus.DISPATCHED,
+    OrderStatus.PICKED_UP,
+    OrderStatus.IN_TRANSIT,
+    OrderStatus.ARRIVED,
+    OrderStatus.AWAITING_CONFIRMATION,
+  ];
+
+  const baseWhere = {
+    creatorCompanyId: session.user.companyId,
+    OR: [
+      { tripAllocation: { isNot: null } },
+      { truckAssignments: { some: {} } },
+    ],
+    ...(filter === 'today' ? { createdAt: { gte: todayStart } } : {}),
+  };
+
+  if (filter === 'delivered') {
+    return prisma.transportRequest.findMany({
+      where: { ...baseWhere, status: OrderStatus.DELIVERED },
+      include: requestInclude,
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  if (filter === 'in_transit') {
+    return prisma.transportRequest.findMany({
+      where: { ...baseWhere, status: { in: inTransitStatuses } },
+      include: requestInclude,
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  return prisma.transportRequest.findMany({
+    where: {
+      ...baseWhere,
+      status: { notIn: [OrderStatus.PENDING, OrderStatus.CANCELLED] },
+    },
+    include: requestInclude,
+    orderBy: { updatedAt: 'desc' },
+    take: 50,
   });
 }

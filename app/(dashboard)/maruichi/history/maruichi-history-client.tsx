@@ -18,7 +18,8 @@ type Request = {
   updatedAt: Date;
   tripAllocation?: {
     driver: { name: string };
-    vehicle: { plateNumber: string };
+    vehicle?: { plateNumber: string } | null;
+    truck?: { plateNumber: string } | null;
   } | null;
 };
 

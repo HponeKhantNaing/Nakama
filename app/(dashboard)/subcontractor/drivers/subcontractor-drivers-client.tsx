@@ -18,24 +18,25 @@ type Driver = {
   isAvailable: boolean;
 };
 
-type Vehicle = {
-  id: string;
-  plateNumber: string;
-  vehicleType: string;
-  isAvailable: boolean;
-};
-
 export function SubcontractorDriversClient({
   drivers,
-  vehicles,
+  trucks,
 }: {
   drivers: Driver[];
-  vehicles: Vehicle[];
+  trucks: {
+    id: string;
+    truckNo: string | null;
+    truckType: string;
+    maxBoxes: number;
+    capacityWeightKg: number;
+    capacityVolumeM3: number;
+    status: string;
+  }[];
 }) {
   const { t } = useTranslation();
 
-  function vehicleLabel(type: string) {
-    const key = `vehicle.${type}` as TranslationKey;
+  function truckLabel(type: string) {
+    const key = `truck.${type}` as TranslationKey;
     const translated = t(key);
     return translated === key ? type.replace(/_/g, ' ') : translated;
   }
@@ -71,17 +72,22 @@ export function SubcontractorDriversClient({
               <CardTitle>{t('shinwa.vehicles')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {vehicles.map((v) => (
+              {trucks.map((tr) => (
                 <div
-                  key={v.id}
+                  key={tr.id}
                   className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/20 p-4"
                 >
                   <div>
-                    <p className="font-semibold">{v.plateNumber}</p>
-                    <p className="text-xs text-muted-foreground">{vehicleLabel(v.vehicleType)}</p>
+                    <p className="font-semibold">{tr.truckNo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {truckLabel(tr.truckType)} — {tr.capacityWeightKg} kg / {tr.maxBoxes} boxes
+                    </p>
                   </div>
-                  <Badge variant={v.isAvailable ? 'default' : 'secondary'} className="rounded-lg">
-                    {v.isAvailable ? t('common.available') : t('common.inUse')}
+                  <Badge
+                    variant={tr.status === 'AVAILABLE' ? 'default' : 'secondary'}
+                    className="rounded-lg"
+                  >
+                    {tr.status === 'AVAILABLE' ? t('common.available') : t('common.inUse')}
                   </Badge>
                 </div>
               ))}

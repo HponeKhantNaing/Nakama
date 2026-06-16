@@ -7,6 +7,21 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
+    if (pathname.startsWith('/api/')) {
+      if (
+        isPublicRoute(pathname) ||
+        pathname.startsWith('/api/auth') ||
+        pathname.startsWith('/api/delivery/confirm') ||
+        pathname.startsWith('/api/confirm')
+      ) {
+        return NextResponse.next();
+      }
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      return NextResponse.next();
+    }
+
     if (pathname === '/') {
       if (token?.role) {
         return NextResponse.redirect(new URL(getDashboardForRole(token.role), req.url));
@@ -20,6 +35,7 @@ export default withAuth(
       }
       return NextResponse.next();
     }
+
     if (!token?.role) {
       const loginUrl = new URL('/login', req.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
@@ -36,6 +52,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
+        if (pathname.startsWith('/api/')) return true;
         if (isPublicRoute(pathname) || pathname.startsWith('/api/auth')) {
           return true;
         }
@@ -55,8 +72,14 @@ export const config = {
     '/shinwa/:path*',
     '/subcontractor/:path*',
     '/driver/:path*',
+    '/delivery/confirm/:path*',
     '/api/transport/:path*',
     '/api/notifications/:path*',
     '/api/upload/:path*',
+    '/api/gps/:path*',
+    '/api/products/:path*',
+    '/api/trucks/:path*',
+    '/api/delivery/:path*',
+    '/api/analytics/:path*',
   ],
 };
