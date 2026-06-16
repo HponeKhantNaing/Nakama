@@ -1,0 +1,21 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+        - npx prisma generate
+    build:
+      commands:
+        - env | grep -e DATABASE_URL -e DIRECT_URL -e NEXTAUTH_URL -e NEXTAUTH_SECRET -e AWS_REGION -e AWS_S3_BUCKET_NAME >> .env.production
+        - npx prisma migrate deploy
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
+      - prisma/**/*

@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum CompanyType {
+  MARUICHI
+  SHINWA
+  SUBCONTRACTOR
+}
+
+enum UserRole {
+  MARUICHI_STAFF
+  SHINWA_STAFF
+  SUBCONTRACTOR_STAFF
+  DRIVER
+}
+
+enum OrderStatus {
+  PENDING
+  SHINWA_ACCEPTED
+  SUBCONTRACTED
+  DRIVER_ASSIGNED
+  DISPATCHED
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum VehicleType {
+  SMALL_TRUCK
+  MEDIUM_TRUCK
+  LARGE_TRUCK
+  TRAILER
+  REFRIGERATED
+}
+
+enum NotificationType {
+  NEW_REQUEST
+  ORDER_ACCEPTED
+  ORDER_REJECTED
+  DRIVER_ASSIGNED
+  STATUS_UPDATE
+  SUBCONTRACT_ASSIGNED
+  DELIVERY_COMPLETE
+}
+
+model Company {
+  id        String      @id @default(cuid())
+  name      String
+  type      CompanyType
+  address   String?
+  phone     String?
+  email     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  users                    User[]
+  createdRequests          TransportRequest[]       @relation("RequestCreator")
+  handledRequests          TransportRequest[]       @relation("RequestHandler")
+  subcontractAssignments   SubContractAssignment[]
+  vehicles                 Vehicle[]
+  drivers                  Driver[]
+
+  @@index([type])
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  companyId    String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  notifications Notification[]
+  driver        Driver?
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([companyId])
+  @@index([role])
+}
+
+model Vehicle {
+  id           String      @id @default(cuid())
+  plateNumber  String      @unique
+  vehicleType  VehicleType
+  capacity     Float
+  companyId    String
+  isAvailable  Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  tripAllocations TripAllocation[]
+
+  @@index([companyId])
+  @@index([isAvailable])
+}
+
+model Driver {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  licenseNo   String?
+  companyId   String
+  userId      String?  @unique
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id])
+  tripAllocations TripAllocation[]
+
+  @@index([companyId])
+  @@index([isAvailable])
+}
+
+model TransportRequest {
+  id                  String      @id @default(cuid())
+  requestNo           String      @unique
+  origin              String
+  destination         String
+  cargoType           String
+  cargoWeight         Float
+  vehicleType         VehicleType
+  vehicleCount        Int         @default(1)
+  expectedPickupDate  DateTime
+  status              OrderStatus @default(PENDING)
+  estimatedCost       Float?
+  actualCost          Float?
+  notes               String?
+  proofImageUrl       String?
+  deliveryPhotoUrl    String?
+  creatorCompanyId    String
+  handlerCompanyId    String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deliveredAt         DateTime?
+
+  creatorCompany          Company                 @relation("RequestCreator", fields: [creatorCompanyId], references: [id])
+  handlerCompany          Company?                @relation("RequestHandler", fields: [handlerCompanyId], references: [id])
+  subContractAssignment   SubContractAssignment?
+  tripAllocation          TripAllocation?
+  notifications           Notification[]
+
+  @@index([status])
+  @@index([creatorCompanyId])
+  @@index([handlerCompanyId])
+  @@index([createdAt])
+  @@index([expectedPickupDate])
+}
+
+model SubContractAssignment {
+  id                 String   @id @default(cuid())
+  transportRequestId String   @unique
+  subcontractorId    String
+  assignedAt         DateTime @default(now())
+  notes              String?
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  subcontractor    Company          @relation(fields: [subcontractorId], references: [id])
+
+  @@index([subcontractorId])
+}
+
+model TripAllocation {
+  id                 String    @id @default(cuid())
+  transportRequestId String    @unique
+  driverId           String
+  vehicleId          String
+  dispatchedAt       DateTime?
+  pickedUpAt         DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  transportRequest TransportRequest @relation(fields: [transportRequestId], references: [id], onDelete: Cascade)
+  driver           Driver           @relation(fields: [driverId], references: [id])
+  vehicle          Vehicle          @relation(fields: [vehicleId], references: [id])
+
+  @@index([driverId])
+  @@index([vehicleId])
+}
+
+model Notification {
+  id                 String           @id @default(cuid())
+  type               NotificationType
+  title              String
+  message            String
+  userId             String?
+  companyId          String?
+  transportRequestId String?
+  isRead             Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+
+  user             User?             @relation(fields: [userId], references: [id])
+  transportRequest TransportRequest? @relation(fields: [transportRequestId], references: [id])
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
