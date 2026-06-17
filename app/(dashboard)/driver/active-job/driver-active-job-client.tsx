@@ -19,7 +19,8 @@ import { updateDeliveryStatus } from '@/app/actions/transport';
 import type { LatLng } from '@/lib/tms/routing';
 import { cn, statusColor, formatDate } from '@/lib/utils';
 import { useOfflineActionQueue } from '@/hooks/useOfflineActionQueue';
-import { MapPin, Package, Phone, Truck, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Package, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { AppLogo } from '@/components/ui/app-logo';
 
 const navItems = [
   { href: '/driver/active-job', labelKey: 'nav.activeJob' as const },
@@ -227,7 +228,7 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                    <Truck className="h-4 w-4 text-muted-foreground" />
+                    <AppLogo size="sm" />
                     <span>{truckLabel}</span>
                   </div>
                 </div>

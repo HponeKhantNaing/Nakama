@@ -53,9 +53,9 @@ const config: Config = {
           active: 'hsl(var(--sidebar-active))',
         },
         coral: {
-          DEFAULT: '#FF6B4A',
-          light: '#FFF0EC',
-          dark: '#E85A3A',
+          DEFAULT: '#41558A',
+          light: '#E8ECF4',
+          dark: '#344670',
         },
       },
       borderRadius: {
