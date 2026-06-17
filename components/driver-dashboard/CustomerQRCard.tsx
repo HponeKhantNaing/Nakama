@@ -71,19 +71,20 @@ export function CustomerQRCard({
   }
 
   return (
-    <Card className="rounded-3xl border-primary/10">
+    <Card className="rounded-xl border-primary/10">
       <CardContent className="space-y-4 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
+        {/* Confirmation controls stack on mobile and become inline on wider screens. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="text-sm font-semibold">Customer Confirmation</p>
             <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
           </div>
-          <Badge className={cn('rounded-xl border-0 px-3 py-1', statusTone)}>{status}</Badge>
+          <Badge className={cn('w-fit rounded-lg border-0 px-3 py-1', statusTone)}>{status}</Badge>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
-            className="h-12 rounded-2xl text-base"
+            className="h-12 w-full rounded-xl text-base sm:w-auto"
             disabled={isPending || !canGenerate}
             onClick={generateQr}
           >
@@ -91,7 +92,7 @@ export function CustomerQRCard({
           </Button>
           <Button
             variant="outline"
-            className="h-12 rounded-2xl text-base"
+            className="h-12 w-full rounded-xl text-base sm:w-auto"
             disabled={!qrDataUrl}
             onClick={() => setOpen(true)}
           >

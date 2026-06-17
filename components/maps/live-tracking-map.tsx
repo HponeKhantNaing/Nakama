@@ -192,12 +192,13 @@ export function LiveTrackingMap({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl shadow-soft" style={{ height }}>
+    <div className="flex flex-col overflow-hidden rounded-xl shadow-soft" style={{ height }}>
       <MapContainer
         key={mapKey}
         center={[center.lat, center.lng]}
         zoom={8}
-        style={{ height: 'calc(100% - 72px)', width: '100%' }}
+        className="min-h-0 flex-1"
+        style={{ width: '100%' }}
         scrollWheelZoom
       >
         <TileLayer
@@ -232,16 +233,17 @@ export function LiveTrackingMap({
         )}
       </MapContainer>
 
-      <div className="flex items-center justify-between border-t bg-white px-5 py-3">
+      {/* Responsive map footer: wraps metrics instead of overflowing on small driver screens. */}
+      <div className="grid shrink-0 grid-cols-2 gap-3 border-t bg-white px-4 py-3 text-sm sm:grid-cols-4 sm:px-5">
         <div>
           <p className="text-xs text-muted-foreground">Progress</p>
           <p className="text-lg font-bold text-primary">{progressPercent}%</p>
         </div>
-        <div className="text-center">
+        <div className="sm:text-center">
           <p className="text-xs text-muted-foreground">Status</p>
           <p className="text-sm font-semibold">{status}</p>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <p className="text-xs text-muted-foreground">ETA</p>
           <p className="text-lg font-bold">{formatEta(etaMinutes)}</p>
         </div>

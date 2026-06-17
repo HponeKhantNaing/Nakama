@@ -73,7 +73,7 @@ export function ProofOfDeliveryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-3xl">
+      <DialogContent className="max-w-lg rounded-xl">
         <DialogHeader>
           <DialogTitle>Proof of Delivery</DialogTitle>
         </DialogHeader>
@@ -96,11 +96,12 @@ export function ProofOfDeliveryModal({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Mobile buttons stack for thumb-friendly proof-of-delivery submission. */}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button disabled={isPending} onClick={onSave}>
+            <Button className="w-full sm:w-auto" disabled={isPending} onClick={onSave}>
               {isPending ? 'Saving...' : 'Save POD'}
             </Button>
           </div>

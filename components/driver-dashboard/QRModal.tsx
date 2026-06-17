@@ -22,12 +22,12 @@ export function QRModal({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-3xl">
+      <DialogContent className="max-w-md rounded-xl">
         <DialogHeader>
           <DialogTitle>Customer QR — {requestNo}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="rounded-2xl bg-muted/30 p-4 text-center">
+          <div className="rounded-xl bg-muted/30 p-4 text-center">
             <p className="text-sm font-semibold">
               {status === 'CONFIRMED' ? '✓ Customer Confirmed' : 'Waiting for customer scan'}
             </p>
@@ -37,12 +37,12 @@ export function QRModal({
           </div>
 
           {qrDataUrl ? (
-            <div className="flex flex-col items-center rounded-3xl border bg-white p-6">
+            <div className="flex flex-col items-center rounded-xl border bg-white p-4 sm:p-6">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrDataUrl} alt="Delivery QR" className="h-64 w-64" />
+              <img src={qrDataUrl} alt="Delivery QR" className="aspect-square w-full max-w-64" />
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
               QR is not generated yet.
             </div>
           )}
