@@ -77,7 +77,7 @@ export function DashboardShell({ titleKey, navItems, children }: DashboardShellP
   return (
     <div className="flex min-h-screen bg-background">
       <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center border-b border-border bg-sidebar sm:h-16">
-        <div className="flex h-full w-[min(18rem,85vw)] shrink-0 items-center gap-3 border-r border-border px-4 sm:px-6 lg:w-64">
+        <div className="flex h-full w-[min(18rem,82vw)] shrink-0 items-center gap-3 border-r border-border px-3 sm:px-5 lg:w-64 lg:px-6">
           <button
             type="button"
             className="rounded-lg p-2 text-sidebar-muted hover:bg-black/5 hover:text-sidebar-foreground lg:hidden"
@@ -95,10 +95,10 @@ export function DashboardShell({ titleKey, navItems, children }: DashboardShellP
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <LayoutDashboard className="hidden h-5 w-5 shrink-0 text-primary sm:block" />
-            <div className="min-w-0">
+            <div className="min-w-0 max-[380px]:hidden">
               <h1 className="truncate text-sm font-semibold text-foreground">{t('app.dashboard')}</h1>
               <p className="truncate text-xs text-muted-foreground">
                 {t('app.welcomeBack')}, {session?.user?.name}
@@ -123,7 +123,8 @@ export function DashboardShell({ titleKey, navItems, children }: DashboardShellP
 
       <aside
         className={cn(
-          'fixed bottom-0 left-0 z-40 flex w-[min(18rem,85vw)] flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-in-out top-14 sm:top-16 lg:w-64',
+          // Responsive side navigation: drawer on small screens, fixed side rail on desktop.
+          'fixed bottom-0 left-0 z-40 flex w-[min(18rem,82vw)] flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-in-out top-14 sm:top-16 lg:w-64',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >

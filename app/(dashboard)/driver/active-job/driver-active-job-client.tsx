@@ -176,17 +176,17 @@ export function DriverActiveJobClient({ data }: { data: any }) {
 
   return (
     <DashboardShell titleKey="dashboard.driver" navItems={navItems}>
-      <div className="mx-auto w-full max-w-lg space-y-4 pb-20">
-        {/* Driver bar */}
+      <div className="mx-auto w-full max-w-6xl space-y-4 pb-20">
+        {/* Driver overview stays compact on phones and becomes the top bar of the wider driver dashboard. */}
         {driver && (
-          <div className="flex items-center justify-between rounded-xl border bg-white px-4 py-3">
-            <div>
+          <div className="flex flex-col gap-3 rounded-xl border bg-white px-4 py-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
+            <div className="min-w-0">
               <p className="font-semibold">{driver.name}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate text-xs text-muted-foreground">
                 {truckLabel} · {driver.licenseType?.replace(/_/g, ' ') ?? 'Driver'}
               </p>
             </div>
-            <Badge className={cn('rounded-lg font-normal', online ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
+            <Badge className={cn('w-fit shrink-0 rounded-lg font-normal', online ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
               {online ? 'Online' : 'Offline'}
             </Badge>
           </div>

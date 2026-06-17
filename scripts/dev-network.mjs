@@ -1,5 +1,8 @@
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { networkInterfaces } from 'node:os';
+
+const require = createRequire(import.meta.url);
 
 function getLocalNetworkIp() {
   const nets = networkInterfaces();
@@ -28,12 +31,19 @@ console.log(`  Tablet:  ${networkUrl}`);
 console.log('  Connect phone/tablet to the same Wi-Fi network.');
 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-const child = spawn('npx', ['next', 'dev', '-H', '0.0.0.0', '-p', port], {
+const nextCli = require.resolve('next/dist/bin/next');
+
+const child = spawn(process.execPath, [nextCli, 'dev', '-H', '0.0.0.0', '-p', port], {
   stdio: 'inherit',
   env: {
     ...process.env,
     NEXTAUTH_URL: networkUrl,
   },
+});
+
+child.on('error', (error) => {
+  console.error('Failed to start Next.js dev server:', error);
+  process.exit(1);
 });
 
 child.on('exit', (code) => {
