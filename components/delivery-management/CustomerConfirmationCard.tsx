@@ -25,7 +25,7 @@ export function CustomerConfirmationCard({
   expiresAt,
 }: {
   driverName: string;
-  truckNo: string;
+  truckNo: string | null;
   hasConfirmation: boolean;
   approved: boolean;
   approvedAt: Date | null;

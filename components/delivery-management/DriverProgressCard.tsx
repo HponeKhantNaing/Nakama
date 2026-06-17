@@ -24,9 +24,9 @@ export type DriverAssignmentProgress = {
   }[];
   assignmentConfirmation?: {
     approved: boolean;
-    approvedAt: Date | null;
-    approvedBy: string | null;
-    expiresAt: Date;
+    approvedAt?: Date | null;
+    approvedBy?: string | null;
+    expiresAt?: Date;
   } | null;
 };
 

@@ -1,34 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LanguageToggle } from '@/components/ui/language-toggle';
+import { AuthPageShell } from '@/components/layout/auth-page-shell';
 import { useTranslation } from '@/lib/i18n/context';
-import { Truck } from 'lucide-react';
+
+const REMEMBER_ME_KEY = 'mtms-remember-me';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
   const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const resetSuccess = searchParams.get('reset') === 'success';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_ME_KEY);
+    if (saved === 'true') {
+      setRememberMe(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (resetSuccess) {
+      setSuccess(t('auth.passwordResetSuccess'));
+    }
+  }, [resetSuccess, t]);
+
+  function handleRememberMeChange(checked: boolean) {
+    setRememberMe(checked);
+    localStorage.setItem(REMEMBER_ME_KEY, checked ? 'true' : 'false');
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     const result = await signIn('credentials', {
       email,
       password,
+      rememberMe: rememberMe ? 'true' : 'false',
       redirect: false,
     });
 
@@ -42,25 +68,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="absolute right-6 top-6">
-        <LanguageToggle />
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/5" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-primary/5" />
-      </div>
-
-      <Card className="relative w-full max-w-md rounded-3xl border-0 shadow-soft">
+    <AuthPageShell>
+      <Card className="relative mb-4 w-full rounded-2xl border-0 shadow-soft sm:mb-8 sm:rounded-3xl">
         <CardHeader className="pb-2 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-md">
-            <Truck className="h-7 w-7 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold">{t('app.name')}</CardTitle>
-          <CardDescription className="text-sm">{t('app.fullName')}</CardDescription>
+          <CardTitle className="text-xl font-bold sm:text-2xl">{t('app.name')}</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">{t('app.fullName')}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">{t('auth.email')}</Label>
@@ -84,22 +98,32 @@ export default function LoginPage() {
                 required
               />
             </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={handleRememberMeChange}
+                />
+                <Label htmlFor="rememberMe" className="cursor-pointer font-normal">
+                  {t('auth.rememberMe')}
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t('auth.forgotPassword')}{' '}
+                <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+                  {t('auth.clickHere')}
+                </Link>
+              </p>
+            </div>
+            {success && <p className="text-sm text-green-600">{success}</p>}
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
           </form>
-          <div className="mt-6 rounded-2xl bg-muted/50 p-4 text-xs text-muted-foreground">
-            <p className="font-semibold text-foreground">{t('auth.demoAccounts')}</p>
-            <ul className="mt-2 space-y-1">
-              <li>staff@maruichi.jp — {t('auth.role.maruichi')}</li>
-              <li>staff@shinwa.jp — {t('auth.role.shinwa')}</li>
-              <li>staff@kansai-logistics.jp — {t('auth.role.subcontractor')}</li>
-              <li>driver@shinwa.jp — {t('auth.role.driver')}</li>
-            </ul>
-          </div>
         </CardContent>
       </Card>
-    </div>
+    </AuthPageShell>
   );
 }

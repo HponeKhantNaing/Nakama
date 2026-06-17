@@ -3,7 +3,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, statusColor, formatDate } from '@/lib/utils';
-import { MapPin, Package, Phone, Truck, User } from 'lucide-react';
+import { MapPin, Package, Phone, User } from 'lucide-react';
+import { AppLogo } from '@/components/ui/app-logo';
 
 export function ActiveDeliveryCard({
   requestNo,
@@ -72,7 +73,7 @@ export function ActiveDeliveryCard({
             </div>
             <div className="rounded-2xl bg-muted/30 p-3">
               <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-muted-foreground" />
+                <AppLogo size="sm" />
                 <p className="text-xs text-muted-foreground">Truck</p>
               </div>
               <p className="mt-1 font-semibold">{truckLabel}</p>
@@ -86,7 +87,7 @@ export function ActiveDeliveryCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-orange-50 p-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-primary/10 p-4">
             <Package className="h-5 w-5 text-primary" />
             <div>
               <p className="text-xs font-semibold text-primary">Cargo</p>

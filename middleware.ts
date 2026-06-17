@@ -7,7 +7,6 @@ export default withAuth(
     const { pathname } = req.nextUrl;
     const token = req.nextauth.token;
 
-    // API routes: auth only — role checks live in route handlers
     if (pathname.startsWith('/api/')) {
       if (
         isPublicRoute(pathname) ||
@@ -53,7 +52,6 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        // Let middleware handle API auth (return JSON 401, not HTML redirect)
         if (pathname.startsWith('/api/')) return true;
         if (isPublicRoute(pathname) || pathname.startsWith('/api/auth')) {
           return true;
@@ -68,6 +66,8 @@ export const config = {
   matcher: [
     '/',
     '/login',
+    '/forgot-password',
+    '/reset-password',
     '/maruichi/:path*',
     '/shinwa/:path*',
     '/subcontractor/:path*',

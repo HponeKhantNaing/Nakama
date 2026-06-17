@@ -47,33 +47,33 @@ export function StatusTable({ requests, actions }: StatusTableProps) {
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-soft">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="-mx-px overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border/60 bg-muted/30">
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.requestNo')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.origin')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.destination')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.status')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.driver')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.vehicle')}
               </th>
-              <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                 {t('table.updated')}
               </th>
               {actions && (
-                <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:px-5 sm:py-4">
                   {t('common.actions')}
                 </th>
               )}

@@ -76,7 +76,7 @@ export function MapboxTrackingMap({
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#FF6B4A', 'line-width': 4, 'line-opacity': 0.85 },
+        paint: { 'line-color': '#41558A', 'line-width': 4, 'line-opacity': 0.85 },
       });
 
       new mapboxgl.Marker({ color: '#34D399' })

@@ -19,7 +19,7 @@ import type { TranslationKey } from '@/lib/i18n';
 
 type Truck = {
   id: string;
-  truckNo: string;
+  truckNo: string | null;
   truckType: string;
   capacityWeightKg: number;
   maxBoxes: number;
@@ -33,7 +33,7 @@ type Assignment = {
   assignedWeight: number;
   assignedQuantity: number;
   status: string;
-  truck?: { truckNo: string; truckType: string } | null;
+  truck?: { truckNo: string | null; truckType: string } | null;
   driver?: { name: string } | null;
 };
 
@@ -68,7 +68,7 @@ export function FleetAllocationPanel({
   const [plan, setPlan] = useState<{
     allocations: {
       truckId: string;
-      truckNo: string;
+      truckNo: string | null;
       truckType: string;
       assignedWeight: number;
       assignedQuantity: number;

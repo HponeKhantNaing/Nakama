@@ -1,17 +1,17 @@
-import { UserRole } from '@prisma/client';
+import { UserRole, USER_ROLES } from '@/lib/roles';
 
 export const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
-  [UserRole.MARUICHI_STAFF]: '/maruichi',
-  [UserRole.SHINWA_STAFF]: '/shinwa',
-  [UserRole.SUBCONTRACTOR_STAFF]: '/subcontractor',
-  [UserRole.DRIVER]: '/driver',
+  [USER_ROLES.MARUICHI_STAFF]: '/maruichi',
+  [USER_ROLES.SHINWA_STAFF]: '/shinwa',
+  [USER_ROLES.SUBCONTRACTOR_STAFF]: '/subcontractor',
+  [USER_ROLES.DRIVER]: '/driver',
 };
 
 export const ROLE_ROUTE_PERMISSIONS: Record<UserRole, string[]> = {
-  [UserRole.MARUICHI_STAFF]: ['/maruichi'],
-  [UserRole.SHINWA_STAFF]: ['/shinwa'],
-  [UserRole.SUBCONTRACTOR_STAFF]: ['/subcontractor'],
-  [UserRole.DRIVER]: ['/driver'],
+  [USER_ROLES.MARUICHI_STAFF]: ['/maruichi'],
+  [USER_ROLES.SHINWA_STAFF]: ['/shinwa'],
+  [USER_ROLES.SUBCONTRACTOR_STAFF]: ['/subcontractor'],
+  [USER_ROLES.DRIVER]: ['/driver'],
 };
 
 export function getDashboardForRole(role: UserRole): string {
@@ -25,7 +25,14 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
   );
 }
 
-export const PUBLIC_ROUTES = ['/login', '/api/auth', '/delivery/confirm', '/confirm'];
+export const PUBLIC_ROUTES = [
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/api/auth',
+  '/delivery/confirm',
+  '/confirm',
+];
 
 export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(

@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 
 type Truck = {
   id: string;
-  truckNo: string;
+  truckNo: string | null;
   truckType: string;
   capacityWeightKg: number;
   maxBoxes: number;

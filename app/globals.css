@@ -10,24 +10,24 @@
     --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
-    --primary: 11 100% 64%;
+    --primary: 224 36% 40%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 20% 96%;
     --secondary-foreground: 0 0% 20%;
     --muted: 210 16% 94%;
     --muted-foreground: 0 0% 44%;
-    --accent: 11 100% 96%;
-    --accent-foreground: 11 80% 45%;
+    --accent: 224 36% 96%;
+    --accent-foreground: 224 36% 32%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
     --border: 210 16% 90%;
     --input: 210 16% 90%;
-    --ring: 11 100% 64%;
+    --ring: 224 36% 40%;
     --radius: 1rem;
-    --sidebar: 0 0% 7%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-muted: 0 0% 55%;
-    --sidebar-active: 11 100% 64%;
+    --sidebar: 0 0% 98.4%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-muted: 0 0% 44%;
+    --sidebar-active: 224 36% 40%;
   }
 }
 
@@ -47,9 +47,28 @@
     @apply rounded-2xl border-0 bg-card shadow-[0_4px_24px_rgba(0,0,0,0.06)];
   }
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-foreground;
+    @apply text-xl font-bold tracking-tight text-foreground sm:text-2xl;
   }
   .page-subtitle {
-    @apply text-sm text-muted-foreground;
+    @apply text-xs text-muted-foreground sm:text-sm;
+  }
+  .auth-logo-rise {
+    animation: auth-logo-rise 3.2s cubic-bezier(0.45, 0.05, 0.25, 1) forwards;
+    will-change: transform, opacity;
+  }
+}
+
+@keyframes auth-logo-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 32vh, 0) scale(0.96);
+  }
+  10% {
+    opacity: 1;
+    transform: translate3d(0, 32vh, 0) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }

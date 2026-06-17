@@ -17,3 +17,5 @@ export function TrackingMap(props: ComponentProps<typeof MapboxTrackingMap>) {
   if (process.env.NEXT_PUBLIC_MAPBOX_TOKEN) return <MapboxTrackingMap {...props} />;
   return <LiveTrackingMap {...props} />;
 }
+
+export const TrackingMapWrapper = TrackingMap;

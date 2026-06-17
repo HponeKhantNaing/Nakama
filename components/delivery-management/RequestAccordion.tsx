@@ -65,7 +65,7 @@ type BoardRequest = {
 
 type Truck = {
   id: string;
-  truckNo: string;
+  truckNo: string | null;
   truckType: string;
   capacityWeightKg: number;
   maxBoxes: number;

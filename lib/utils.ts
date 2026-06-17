@@ -52,7 +52,7 @@ export function statusColor(status: string): string {
     SUBCONTRACTED: 'bg-purple-100 text-purple-800',
     DRIVER_ASSIGNED: 'bg-indigo-100 text-indigo-800',
     DISPATCHED: 'bg-cyan-100 text-cyan-800',
-    PICKED_UP: 'bg-orange-100 text-orange-800',
+    PICKED_UP: 'bg-primary/10 text-primary',
     DELIVERED: 'bg-green-100 text-green-800',
     CANCELLED: 'bg-red-100 text-red-800',
   };

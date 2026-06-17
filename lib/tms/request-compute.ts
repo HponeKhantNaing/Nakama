@@ -12,8 +12,12 @@ export function isActiveAssignment(status: AssignmentStatus | string) {
 }
 
 export function canCancelAssignment(assignment: AssignmentSnapshot) {
-  const cancellable = [AssignmentStatus.PENDING, AssignmentStatus.ASSIGNED];
-  if (!cancellable.includes(assignment.status as AssignmentStatus)) return false;
+  if (
+    assignment.status !== AssignmentStatus.PENDING &&
+    assignment.status !== AssignmentStatus.ASSIGNED
+  ) {
+    return false;
+  }
   if (assignment.assignmentConfirmation?.approved) return false;
   return true;
 }
@@ -66,8 +70,9 @@ export function computeRequestStatus(input: {
     allDelivered &&
     assignments.every((a) => a.assignmentConfirmation?.approved === true);
 
-  const anyInTransit = assignments.some((a) =>
-    [AssignmentStatus.IN_TRANSIT, AssignmentStatus.ARRIVED].includes(a.status as AssignmentStatus)
+  const anyInTransit = assignments.some(
+    (a) =>
+      a.status === AssignmentStatus.IN_TRANSIT || a.status === AssignmentStatus.ARRIVED
   );
   if (anyInTransit) return OrderStatus.IN_TRANSIT;
 

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Noto_Sans_JP } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
@@ -13,6 +13,16 @@ const notoSansJP = Noto_Sans_JP({
 export const metadata: Metadata = {
   title: 'MTMS - 丸一倉庫 輸送管理システム',
   description: 'B2B Logistics and Fleet Management System',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({

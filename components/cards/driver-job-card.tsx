@@ -12,7 +12,8 @@ import { useGpsSimulation } from '@/hooks/useGpsSimulation';
 import { decodePolyline } from '@/lib/tms/routing';
 import { formatDate, statusColor } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { MapPin, Package, Truck, User, Navigation } from 'lucide-react';
+import { MapPin, Package, User, Navigation } from 'lucide-react';
+import { AppLogo } from '@/components/ui/app-logo';
 import { useTranslation } from '@/lib/i18n/context';
 import type { TranslationKey } from '@/lib/i18n';
 import type { LatLng } from '@/lib/tms/routing';
@@ -240,7 +241,7 @@ export function DriverJobCard({ job }: DriverJobCardProps) {
               <p className="font-semibold">{job.destination}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 rounded-2xl bg-orange-50 p-4">
+          <div className="flex items-center gap-3 rounded-2xl bg-primary/10 p-4">
             <Package className="h-5 w-5 shrink-0 text-primary" />
             <div>
               <p className="text-xs font-semibold text-primary">{t('driver.cargo')}</p>
@@ -255,7 +256,7 @@ export function DriverJobCard({ job }: DriverJobCardProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-2 rounded-2xl bg-muted/50 p-3">
-              <Truck className="h-4 w-4 text-muted-foreground" />
+              <AppLogo size="sm" />
               <div>
                 <p className="text-xs text-muted-foreground">{t('table.vehicle')}</p>
                 <p className="text-sm font-medium">{truckLabel}</p>

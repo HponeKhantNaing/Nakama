@@ -42,7 +42,7 @@ type Request = {
 type Driver = { id: string; name: string; isAvailable: boolean };
 type Truck = {
   id: string;
-  truckNo: string;
+  truckNo: string | null;
   truckType: string;
   capacityWeightKg: number;
   maxBoxes: number;
@@ -77,7 +77,7 @@ function AssignFleetButton({
     const truckId = formData.get('truckId');
     const driverId = formData.get('driverId');
 
-    if (!truckId || !driverId) return;
+    if (!truckId || !driverId || typeof truckId !== 'string' || typeof driverId !== 'string') return;
 
     startTransition(async () => {
       const result = await createTruckAssignment({
@@ -153,7 +153,7 @@ export function SubcontractorAssignedClient({
           requests={requests}
           actions={(req) =>
             req.status === 'SUBCONTRACTED' ? (
-              <AssignFleetButton request={req} drivers={drivers} trucks={trucks} />
+              <AssignFleetButton request={req as Request} drivers={drivers} trucks={trucks} />
             ) : null
           }
         />

@@ -19,7 +19,8 @@ import { updateDeliveryStatus } from '@/app/actions/transport';
 import type { LatLng } from '@/lib/tms/routing';
 import { cn, statusColor, formatDate } from '@/lib/utils';
 import { useOfflineActionQueue } from '@/hooks/useOfflineActionQueue';
-import { MapPin, Package, Phone, Truck, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Package, Phone, ChevronDown, ChevronUp } from 'lucide-react';
+import { AppLogo } from '@/components/ui/app-logo';
 
 const navItems = [
   { href: '/driver/active-job', labelKey: 'nav.activeJob' as const },
@@ -110,7 +111,8 @@ export function DriverActiveJobClient({ data }: { data: any }) {
     '—';
 
   const confirmed =
-    assignment?.assignmentConfirmation?.approved ?? !!activeJob?.deliveryConfirmation?.approvedAt ?? false;
+    assignment?.assignmentConfirmation?.approved === true ||
+    !!activeJob?.deliveryConfirmation?.approvedAt;
 
   const runQueued = useCallback(async (a: any) => {
     try {
@@ -174,11 +176,11 @@ export function DriverActiveJobClient({ data }: { data: any }) {
 
   return (
     <DashboardShell titleKey="dashboard.driver" navItems={navItems}>
-      <div className="mx-auto w-full max-w-lg space-y-4">
-        {/* Mobile-first driver bar: wraps safely when driver/truck text is long. */}
+      <div className="mx-auto w-full max-w-lg space-y-4 pb-20">
+        {/* Driver bar */}
         {driver && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3">
-            <div className="min-w-0">
+          <div className="flex items-center justify-between rounded-xl border bg-white px-4 py-3">
+            <div>
               <p className="font-semibold">{driver.name}</p>
               <p className="text-xs text-muted-foreground">
                 {truckLabel} · {driver.licenseType?.replace(/_/g, ' ') ?? 'Driver'}
@@ -205,10 +207,10 @@ export function DriverActiveJobClient({ data }: { data: any }) {
             {/* Job summary */}
             <Card className="rounded-xl">
               <CardContent className="space-y-3 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
                     <p className="font-mono text-xs text-muted-foreground">{activeJob.requestNo}</p>
-                    <p className="mt-1 break-words text-base font-bold">
+                    <p className="mt-1 text-base font-bold">
                       {activeJob.origin} → {activeJob.destination}
                     </p>
                   </div>
@@ -217,17 +219,17 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                   </Badge>
                 </div>
 
-                <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="min-w-0 break-words">
+                    <span>
                       {assignment?.assignedQuantity ?? activeJob.totalQuantity} boxes ·{' '}
                       {Math.round(assignment?.assignedWeight ?? activeJob.cargoWeight)} kg
                     </span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
-                    <Truck className="h-4 w-4 text-muted-foreground" />
-                    <span className="min-w-0 break-words">{truckLabel}</span>
+                    <AppLogo size="sm" />
+                    <span>{truckLabel}</span>
                   </div>
                 </div>
 

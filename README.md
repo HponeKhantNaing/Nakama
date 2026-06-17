@@ -35,12 +35,25 @@ docker run --name mtms-postgres -e POSTGRES_USER=mtms_admin -e POSTGRES_PASSWORD
 npx prisma migrate dev --name init
 npm run db:seed
 
-# Start development server
+# Start development server (accessible on phone/tablet via local network)
 npm run dev
+
+# Start on localhost only
+npm run dev:local
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
+### Phone & Tablet (same Wi-Fi)
+
+Run `npm run dev` — the terminal prints your network URL, for example:
+
+```
+Phone:   http://192.168.1.42:3000
+Tablet:  http://192.168.1.42:3000
+```
+
+Open that address on your phone or tablet browser. Both devices must be on the same Wi-Fi network as your computer.
 ## Demo Accounts
 
 | Email | Role | Password |

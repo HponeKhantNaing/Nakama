@@ -43,7 +43,7 @@ export function VerticalStatusStepper({
               <div
                 className={cn(
                   'mt-0.5 h-3.5 w-3.5 rounded-full',
-                  active ? 'bg-primary shadow-[0_0_0_4px_rgba(255,107,74,0.15)]' : 'bg-border'
+                  active ? 'bg-primary shadow-[0_0_0_4px_rgba(65,85,138,0.15)]' : 'bg-border'
                 )}
               />
               <div className="flex-1">

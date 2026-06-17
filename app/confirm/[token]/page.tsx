@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CheckCircle, Package, Truck, User } from 'lucide-react';
+import { CheckCircle, Package, User } from 'lucide-react';
+import { AppLogo } from '@/components/ui/app-logo';
 
 interface ConfirmData {
   requestNo: string;
@@ -108,7 +109,7 @@ export default function ConfirmPage() {
             )}
             {data?.truck && (
               <div className="flex items-center gap-2 text-sm">
-                <Truck className="h-4 w-4 text-muted-foreground" />
+                <AppLogo size="sm" />
                 <span>{data.truck}</span>
               </div>
             )}

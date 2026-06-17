@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AnalyticsData } from '@/types';
 import { useTranslation } from '@/lib/i18n/context';
 
-const COLORS = ['#FF6B4A', '#7C8CF8', '#34D399', '#FBBF24', '#F87171'];
+const COLORS = ['#41558A', '#7C8CF8', '#34D399', '#FBBF24', '#F87171'];
 
 interface AnalyticsChartsProps {
   data: AnalyticsData;
@@ -46,7 +46,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
               <XAxis dataKey="month" fontSize={12} tick={{ fill: '#717171' }} />
               <YAxis tick={{ fill: '#717171' }} />
               <Tooltip />
-              <Bar dataKey="count" fill="#FF6B4A" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="count" fill="#41558A" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -129,7 +129,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
               <Legend />
               <Bar
                 dataKey="deliveries"
-                fill="#FF6B4A"
+                fill="#41558A"
                 name={t('analytics.deliveries')}
                 radius={[6, 6, 0, 0]}
               />
@@ -156,13 +156,13 @@ export function AnalyticsSummary({ data }: AnalyticsChartsProps) {
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
       {stats.map((stat) => (
         <Card key={stat.label}>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">{stat.label}</p>
             <p
-              className={`mt-1 text-3xl font-bold ${stat.accent ? 'text-primary' : 'text-foreground'}`}
+              className={`mt-1 text-2xl font-bold sm:text-3xl ${stat.accent ? 'text-primary' : 'text-foreground'}`}
             >
               {stat.value}
             </p>

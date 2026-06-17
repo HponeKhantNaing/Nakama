@@ -44,7 +44,7 @@ type ActiveDelivery = {
     truck?: { truckNo: string | null } | null;
   } | null;
   truckAssignments?: {
-    driver: { name: string; currentLat: number | null; currentLng: number | null };
+    driver: { name: string; currentLat: number | null; currentLng: number | null } | null;
     truck?: { truckNo: string | null } | null;
     deliveryProgress?: {
       latitude: number;

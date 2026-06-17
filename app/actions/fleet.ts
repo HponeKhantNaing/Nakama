@@ -547,8 +547,9 @@ export async function updateAssignmentStatus(
       const active = all.filter((a) => a.status !== AssignmentStatus.CANCELLED);
       const allArrivedOrDelivered =
         active.length > 0 &&
-        active.every((a) =>
-          [AssignmentStatus.ARRIVED, AssignmentStatus.DELIVERED].includes(a.status)
+        active.every(
+          (a) =>
+            a.status === AssignmentStatus.ARRIVED || a.status === AssignmentStatus.DELIVERED
         );
 
       await tx.transportRequest.update({
@@ -648,7 +649,7 @@ export async function recordAssignmentProgress(
 
     if (assignment?.transportRequest) {
       const progress = data.progress ?? 0;
-      let nextStatus = OrderStatus.IN_TRANSIT;
+      let nextStatus: OrderStatus = OrderStatus.IN_TRANSIT;
       if (progress >= 100) nextStatus = OrderStatus.ARRIVED;
       else if (progress < 5) nextStatus = OrderStatus.DISPATCHED;
       else if (progress < 15) nextStatus = OrderStatus.PICKED_UP;

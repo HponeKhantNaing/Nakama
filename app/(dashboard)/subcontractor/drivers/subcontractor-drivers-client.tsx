@@ -25,7 +25,7 @@ export function SubcontractorDriversClient({
   drivers: Driver[];
   trucks: {
     id: string;
-    truckNo: string;
+    truckNo: string | null;
     truckType: string;
     maxBoxes: number;
     capacityWeightKg: number;

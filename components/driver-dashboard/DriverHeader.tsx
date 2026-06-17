@@ -29,7 +29,7 @@ export function DriverHeader({ info }: { info: DriverHeaderInfo }) {
   }, [info.name]);
 
   return (
-    <Card className="sticky top-16 z-30 rounded-3xl border-border/60 bg-white/85 shadow-soft backdrop-blur-md">
+    <Card className="sticky top-14 z-30 rounded-3xl border-border/60 bg-sidebar shadow-soft sm:top-16">
       <CardContent className="flex items-center gap-4 p-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-lg font-bold text-primary">
           {initials}

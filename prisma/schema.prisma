@@ -158,6 +158,7 @@ model User {
   company       Company        @relation(fields: [companyId], references: [id])
   notifications Notification[]
   driver        Driver?
+  passwordResetTokens PasswordResetToken[]
 
   @@index([companyId])
   @@index([role])
@@ -564,4 +565,17 @@ model Notification {
   @@index([companyId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

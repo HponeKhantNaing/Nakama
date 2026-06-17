@@ -8,7 +8,7 @@ import { shinwaNavItems } from '@/lib/nav/shinwa';
 type Driver = { id: string; name: string; isAvailable: boolean };
 type Truck = {
   id: string;
-  truckNo: string;
+  truckNo: string | null;
   truckType: string;
   capacityWeightKg: number;
   maxBoxes: number;
