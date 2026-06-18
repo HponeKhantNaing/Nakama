@@ -17,7 +17,7 @@ type Schedule = {
   endTime: string;
   label: string | null;
   isLunch: boolean;
-  trip: { tripCode: string; pallets: number };
+  trip: { tripCode: string; pallets: number; yokomochiOrder?: { orderNo: string } | null };
 };
 type Trip = { id: string; tripNo: number; tripCode: string; pallets: number; status: string };
 
@@ -79,13 +79,28 @@ export function DriverTimelineScheduler({
 
           {drivers.map((driver) => {
             const driverSchedules = schedules.filter((s) => s.driverId === driver.id);
+            const assignedOrderCodes = Array.from(
+              new Set(
+                driverSchedules
+                  .map((s) => s.trip.yokomochiOrder?.orderNo)
+                  .filter((orderNo): orderNo is string => Boolean(orderNo))
+              )
+            );
             return (
               <div
                 key={driver.id}
                 className="relative grid border-b last:border-b-0"
                 style={{ gridTemplateColumns: `100px repeat(${HOURS.length}, 1fr)` }}
               >
-                <div className="flex items-center p-2 text-sm font-medium">{driver.name}</div>
+                <div className="flex min-h-[48px] flex-col justify-center p-2">
+                  <span className="text-sm font-medium">{driver.name}</span>
+                  {/* Show the assigned order code beside each driver row for faster timeline scanning. */}
+                  {assignedOrderCodes.length > 0 && (
+                    <span className="truncate font-mono text-[10px] text-muted-foreground">
+                      {assignedOrderCodes.join(', ')}
+                    </span>
+                  )}
+                </div>
                 {HOURS.map((h) => (
                   <div key={h} className="relative min-h-[48px] border-l" />
                 ))}
@@ -106,7 +121,7 @@ export function DriverTimelineScheduler({
                       }}
                       title={s.trip.tripCode}
                     >
-                      {s.label ?? s.trip.tripCode} ({s.trip.pallets}p)
+                      {s.trip.yokomochiOrder?.orderNo ?? s.trip.tripCode} · {s.trip.tripCode} ({s.trip.pallets}p)
                     </div>
                   );
                 })}
