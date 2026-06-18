@@ -16,6 +16,7 @@ enum CompanyType {
   MARUICHI
   SHINWA
   SUBCONTRACTOR
+  FACTORY
 }
 
 enum UserRole {
@@ -23,6 +24,7 @@ enum UserRole {
   SHINWA_STAFF
   SUBCONTRACTOR_STAFF
   DRIVER
+  FACTORY_STAFF
 }
 
 enum OrderStatus {
@@ -140,6 +142,12 @@ model Company {
   vehicles               Vehicle[]
   drivers                Driver[]
   deliverySplits         DeliverySplit[]
+  factoryRequestsFrom    FactoryRequest[] @relation("FactoryRequestWarehouse")
+  factoryRequestsTo      FactoryRequest[] @relation("FactoryRequestFactory")
+  yokomochiTrips           YokomochiTrip[]
+  carrierRequests          CarrierRequest[] @relation("CarrierRequestWarehouse")
+  carrierRequestsHandling  CarrierRequest[] @relation("CarrierRequestCarrier")
+  yokomochiSubcontracts    YokomochiSubcontractAssignment[]
 
   @@index([type])
 }
@@ -159,6 +167,9 @@ model User {
   notifications Notification[]
   driver        Driver?
   passwordResetTokens PasswordResetToken[]
+
+  factoryRequestsCreated FactoryRequest[] @relation("FactoryRequestCreator")
+  negotiationActions     NegotiationHistory[]
 
   @@index([companyId])
   @@index([role])
@@ -342,6 +353,9 @@ model Truck {
   company          Company           @relation(fields: [companyId], references: [id])
   tripAllocations  TripAllocation[]
   truckAssignments TruckAssignment[]
+  internalFleetAssignments InternalFleetAssignment[]
+  driverSchedules  DriverSchedule[]
+  driverTasks      DriverTask[]
 
   @@index([companyId])
   @@index([status])
@@ -452,6 +466,9 @@ model Driver {
   tripAllocations  TripAllocation[]
   truckAssignments TruckAssignment[]
   gpsHistory       GpsHistory[]
+  internalFleetAssignments InternalFleetAssignment[]
+  driverSchedules  DriverSchedule[]
+  driverTasks      DriverTask[]
 
   @@index([companyId])
   @@index([status])
@@ -578,4 +595,336 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// ─── Key Coffee Yokomochi (横持輸送) ───────────────────────────────────────────
+
+enum FactoryResponseStatus {
+  FULL
+  PARTIAL
+  REJECTED
+}
+
+enum NegotiationAction {
+  APPROVE
+  REJECT
+  REQUEST_AGAIN
+}
+
+enum YokomochiOrderStatus {
+  DRAFT
+  FACTORY_PENDING
+  NEGOTIATING
+  APPROVED
+  TRIPS_CALCULATED
+  INTERNAL_SCHEDULING
+  CARRIER_PENDING
+  SUBCONTRACTING
+  DRIVER_ASSIGNED
+  IN_PROGRESS
+  AWAITING_VERIFICATION
+  COMPLETED
+  CANCELLED
+}
+
+enum YokomochiTripStatus {
+  PLANNED
+  INTERNAL_ASSIGNED
+  CARRIER_ASSIGNED
+  SUBCONTRACT_ASSIGNED
+  DRIVER_ASSIGNED
+  IN_PROGRESS
+  ARRIVED_WAREHOUSE
+  VERIFIED
+  COMPLETED
+  CANCELLED
+}
+
+enum DriverTaskStatus {
+  ASSIGNED
+  ARRIVED_FACTORY
+  LOADED_CARGO
+  IN_TRANSIT
+  ARRIVED_WAREHOUSE
+  COMPLETED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CarrierRequestStatus {
+  PENDING
+  ACCEPTED
+  PARTIAL
+  REJECTED
+}
+
+/// Parent order — never deleted, all history preserved
+model YokomochiOrder {
+  id              String               @id @default(cuid())
+  orderNo         String               @unique
+  status          YokomochiOrderStatus @default(DRAFT)
+  cargoType       String?
+  productName     String?
+  totalTrips      Int                  @default(0)
+  remainderPallets Int                 @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  completedAt     DateTime?
+
+  factoryRequest   FactoryRequest?
+  factoryResponse  FactoryResponse?
+  negotiationHistory NegotiationHistory[]
+  trips            YokomochiTrip[]
+  carrierRequest   CarrierRequest?
+  deliveryVerification DeliveryVerification?
+  deliveryForm     YokomochiDeliveryForm?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model FactoryRequest {
+  id                 String   @id @default(cuid())
+  yokomochiOrderId   String   @unique
+  warehouseCompanyId String
+  factoryCompanyId   String
+  createdById        String?
+  requestedQuantity  Int
+  requestedPallets   Int
+  requestedBoxes     Int
+  requestedDate      DateTime
+  cargoType          String?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  yokomochiOrder   YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  warehouseCompany Company        @relation("FactoryRequestWarehouse", fields: [warehouseCompanyId], references: [id])
+  factoryCompany   Company        @relation("FactoryRequestFactory", fields: [factoryCompanyId], references: [id])
+  createdBy        User?          @relation("FactoryRequestCreator", fields: [createdById], references: [id])
+
+  @@index([warehouseCompanyId])
+  @@index([factoryCompanyId])
+  @@index([createdAt])
+}
+
+model FactoryResponse {
+  id                 String                @id @default(cuid())
+  yokomochiOrderId   String                @unique
+  availableQuantity  Int
+  availablePallets   Int
+  availableBoxes     Int
+  availableDate      DateTime
+  negotiationStatus  FactoryResponseStatus
+  notes              String?
+  respondedAt        DateTime              @default(now())
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+
+  @@index([negotiationStatus])
+}
+
+model NegotiationHistory {
+  id               String              @id @default(cuid())
+  yokomochiOrderId String
+  action           NegotiationAction
+  actorUserId      String?
+  actorRole        UserRole?
+  message          String?
+  requestedPallets Int?
+  offeredPallets   Int?
+  createdAt        DateTime            @default(now())
+
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  actor          User?          @relation(fields: [actorUserId], references: [id])
+
+  @@index([yokomochiOrderId])
+  @@index([createdAt])
+}
+
+model YokomochiTrip {
+  id               String              @id @default(cuid())
+  yokomochiOrderId String
+  tripNo           Int
+  tripCode         String
+  pallets          Int                 @default(16)
+  boxes            Int                 @default(0)
+  status           YokomochiTripStatus @default(PLANNED)
+  carrierCompanyId String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  yokomochiOrder           YokomochiOrder                  @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  carrierCompany           Company?                        @relation(fields: [carrierCompanyId], references: [id])
+  internalFleetAssignment  InternalFleetAssignment?
+  driverSchedule           DriverSchedule?
+  driverTask               DriverTask?
+  subcontractAssignment    YokomochiSubcontractAssignment?
+
+  @@unique([yokomochiOrderId, tripNo])
+  @@index([yokomochiOrderId])
+  @@index([status])
+}
+
+model InternalFleetAssignment {
+  id        String   @id @default(cuid())
+  tripId    String   @unique
+  truckId   String
+  driverId  String
+  tripCount Int      @default(1)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trip   YokomochiTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  truck  Truck         @relation(fields: [truckId], references: [id])
+  driver Driver        @relation(fields: [driverId], references: [id])
+
+  @@index([truckId])
+  @@index([driverId])
+}
+
+model DriverSchedule {
+  id        String   @id @default(cuid())
+  tripId    String   @unique
+  driverId  String
+  truckId   String
+  startTime DateTime
+  endTime   DateTime
+  label     String?
+  isLunch   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trip   YokomochiTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  driver Driver        @relation(fields: [driverId], references: [id])
+  truck  Truck         @relation(fields: [truckId], references: [id])
+
+  @@index([driverId])
+  @@index([startTime])
+}
+
+model CarrierRequest {
+  id                 String               @id @default(cuid())
+  yokomochiOrderId   String               @unique
+  warehouseCompanyId String
+  carrierCompanyId   String
+  requestedTrips     Int
+  status             CarrierRequestStatus @default(PENDING)
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  yokomochiOrder   YokomochiOrder  @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  warehouseCompany Company         @relation("CarrierRequestWarehouse", fields: [warehouseCompanyId], references: [id])
+  carrierCompany   Company         @relation("CarrierRequestCarrier", fields: [carrierCompanyId], references: [id])
+  response         CarrierResponse?
+
+  @@index([carrierCompanyId])
+  @@index([status])
+}
+
+model CarrierResponse {
+  id                  String   @id @default(cuid())
+  carrierRequestId    String   @unique
+  availableTrips      Int
+  truckCount          Int
+  driverCount         Int
+  truckInfo           String?
+  driverInfo          String?
+  estimatedPickupTime DateTime?
+  notes               String?
+  respondedAt         DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  carrierRequest CarrierRequest @relation(fields: [carrierRequestId], references: [id], onDelete: Cascade)
+}
+
+model YokomochiSubcontractAssignment {
+  id                String   @id @default(cuid())
+  tripId            String   @unique
+  subcontractorId   String
+  assignedTrips     Int      @default(1)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  trip          YokomochiTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  subcontractor Company       @relation(fields: [subcontractorId], references: [id])
+
+  @@index([subcontractorId])
+}
+
+model DriverTask {
+  id               String           @id @default(cuid())
+  tripId           String           @unique
+  driverId         String
+  truckId          String?
+  status           DriverTaskStatus @default(ASSIGNED)
+  pickupLocation   String
+  destination      String
+  cargoType        String?
+  boxes            Int              @default(0)
+  pallets          Int              @default(0)
+  eta              DateTime?
+  arrivedFactoryAt DateTime?
+  loadedAt         DateTime?
+  startedAt        DateTime?
+  arrivedWarehouseAt DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  trip   YokomochiTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  driver Driver        @relation(fields: [driverId], references: [id])
+  truck  Truck?        @relation(fields: [truckId], references: [id])
+
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DeliveryVerification {
+  id                 String             @id @default(cuid())
+  yokomochiOrderId   String             @unique
+  verifiedQuantity   Int?
+  verifiedPallets    Int?
+  verifiedBoxes      Int?
+  truckInfo          String?
+  driverInfo         String?
+  status             VerificationStatus @default(PENDING)
+  notes              String?
+  verifiedByUserId   String?
+  verifiedAt         DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+}
+
+/// Digital 横持輸送依頼書 / 確認書
+model YokomochiDeliveryForm {
+  id               String    @id @default(cuid())
+  yokomochiOrderId String    @unique
+  deliveryNo       String    @unique
+  driverName       String?
+  truckInfo        String?
+  cargoType        String?
+  boxes            Int       @default(0)
+  pallets          Int       @default(0)
+  arrivalTime      DateTime?
+  verificationNote String?
+  approvedBy       String?
+  completedTime    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
 }

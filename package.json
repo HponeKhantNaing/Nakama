@@ -16,6 +16,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:backfill": "tsx prisma/backfill.ts",
     "db:fix-statuses": "tsx prisma/fix-request-statuses.ts",
+    "db:yokomochi-reset": "prisma db execute --schema prisma/schema.prisma --file prisma/reset-yokomochi-tables.sql && prisma db push --accept-data-loss",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

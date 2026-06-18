@@ -9,10 +9,10 @@ async function main() {
 
   const maruichi = await prisma.company.upsert({
     where: { id: 'maruichi-company' },
-    update: { latitude: 35.6762, longitude: 139.6503 },
+    update: { name: '20号物流センター', latitude: 35.6762, longitude: 139.6503 },
     create: {
       id: 'maruichi-company',
-      name: 'Maruichi Souko Company',
+      name: '20号物流センター',
       type: CompanyType.MARUICHI,
       address: 'Tokyo, Japan',
       email: 'contact@maruichi.jp',
@@ -24,10 +24,10 @@ async function main() {
 
   const shinwa = await prisma.company.upsert({
     where: { id: 'shinwa-company' },
-    update: { latitude: 34.6937, longitude: 135.5023 },
+    update: { name: '建会社（進和運輸）', latitude: 34.6937, longitude: 135.5023 },
     create: {
       id: 'shinwa-company',
-      name: 'Shinwa Company',
+      name: '建会社（進和運輸）',
       type: CompanyType.SHINWA,
       address: 'Osaka, Japan',
       email: 'contact@shinwa.jp',
@@ -49,6 +49,36 @@ async function main() {
       phone: '+81-75-1234-5678',
       latitude: 35.0116,
       longitude: 135.7681,
+    },
+  });
+
+  await prisma.company.upsert({
+    where: { id: 'subcontractor-osaka' },
+    update: {},
+    create: {
+      id: 'subcontractor-osaka',
+      name: '大阪協力運輸',
+      type: CompanyType.SUBCONTRACTOR,
+      address: 'Osaka, Japan',
+      email: 'contact@osaka-logistics.jp',
+      phone: '+81-6-9999-0000',
+      latitude: 34.6937,
+      longitude: 135.5023,
+    },
+  });
+
+  const factory = await prisma.company.upsert({
+    where: { id: 'keycoffee-factory' },
+    update: {},
+    create: {
+      id: 'keycoffee-factory',
+      name: 'キーコーヒー飲料工場',
+      type: CompanyType.FACTORY,
+      address: '静岡県',
+      email: 'factory@keycoffee.jp',
+      phone: '+81-54-123-4567',
+      latitude: 34.9756,
+      longitude: 138.3827,
     },
   });
 
@@ -174,6 +204,53 @@ async function main() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: 'staff@keycoffee.jp' },
+    update: {},
+    create: {
+      email: 'staff@keycoffee.jp',
+      passwordHash,
+      name: 'Factory Staff',
+      role: UserRole.FACTORY_STAFF,
+      companyId: factory.id,
+    },
+  });
+
+  // Internal fleet — 10t trucks at 20号物流センター (16 pallets/trip)
+  for (const [i, label] of [['A', '小野'], ['B', '浅川']] as const) {
+    const truckNum = `WH-10T-${i}`;
+    await prisma.truck.upsert({
+      where: { truckNumber: truckNum },
+      update: { maxPallet: 16, maxBoxes: 96, companyId: maruichi.id },
+      create: {
+        truckNumber: truckNum,
+        truckNo: truckNum,
+        truckType: TruckType.TEN_TON,
+        plateNumber: `名古屋500あ${i}`,
+        capacityWeightKg: 10000,
+        capacityVolumeM3: 40,
+        maxBoxes: 96,
+        maxPallet: 16,
+        status: TruckStatus.AVAILABLE,
+        companyId: maruichi.id,
+      },
+    });
+    await prisma.driver.upsert({
+      where: { id: `maruichi-driver-${i}` },
+      update: { name: label, companyId: maruichi.id },
+      create: {
+        id: `maruichi-driver-${i}`,
+        name: label,
+        phone: `+81-90-3000-000${i}`,
+        licenseNo: `DL-MR-${i}`,
+        licenseType: LicenseType.LARGE,
+        companyId: maruichi.id,
+        status: DriverStatus.AVAILABLE,
+        isAvailable: true,
+      },
+    });
+  }
+
   const driverUser = await prisma.user.upsert({
     where: { email: 'driver@shinwa.jp' },
     update: {},
@@ -252,10 +329,14 @@ async function main() {
     });
   }
 
-  console.log('Enterprise TMS seed completed:', { maruichi, shinwa, customer });
+  console.log('Enterprise TMS seed completed:', { maruichi, shinwa, factory, customer });
   console.log('Demo logins (password: password123):');
-  console.log('  Shinwa driver 1: driver@shinwa.jp (Taro Yamada)');
-  console.log('  Shinwa driver 2: driver2@shinwa.jp (Ken Suzuki)');
+  console.log('  Warehouse: staff@maruichi.jp');
+  console.log('  Factory: staff@keycoffee.jp');
+  console.log('  Carrier: staff@shinwa.jp');
+  console.log('  Driver 1: driver@shinwa.jp (Taro Yamada)');
+  console.log('  Driver 2: driver2@shinwa.jp (Ken Suzuki)');
+  console.log('  Internal drivers: 小野, 浅川 (maruichi fleet)');
 }
 
 main()

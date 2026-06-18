@@ -55,6 +55,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.email = user.email;
         token.role = user.role;
         token.companyId = user.companyId;
         token.companyName = user.companyName;
@@ -64,11 +65,25 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.companyId = token.companyId;
-        session.user.companyName = token.companyName;
+      const email = (token.email as string | undefined) ?? session.user?.email ?? undefined;
+
+      if (session.user && email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email },
+          include: { company: true },
+        });
+
+        if (dbUser?.isActive) {
+          session.user.id = dbUser.id;
+          session.user.role = dbUser.role;
+          session.user.companyId = dbUser.companyId;
+          session.user.companyName = dbUser.company.name;
+        } else if (token.id) {
+          session.user.id = token.id as string;
+          session.user.role = token.role;
+          session.user.companyId = token.companyId;
+          session.user.companyName = token.companyName;
+        }
       }
       return session;
     },

@@ -1,17 +1,19 @@
 import { UserRole, USER_ROLES } from '@/lib/roles';
 
 export const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
-  [USER_ROLES.MARUICHI_STAFF]: '/maruichi',
-  [USER_ROLES.SHINWA_STAFF]: '/shinwa',
+  [USER_ROLES.MARUICHI_STAFF]: '/warehouse',
+  [USER_ROLES.SHINWA_STAFF]: '/carrier',
   [USER_ROLES.SUBCONTRACTOR_STAFF]: '/subcontractor',
   [USER_ROLES.DRIVER]: '/driver',
+  [USER_ROLES.FACTORY_STAFF]: '/factory/requests',
 };
 
 export const ROLE_ROUTE_PERMISSIONS: Record<UserRole, string[]> = {
-  [USER_ROLES.MARUICHI_STAFF]: ['/maruichi'],
-  [USER_ROLES.SHINWA_STAFF]: ['/shinwa'],
+  [USER_ROLES.MARUICHI_STAFF]: ['/warehouse', '/maruichi'],
+  [USER_ROLES.SHINWA_STAFF]: ['/carrier', '/shinwa'],
   [USER_ROLES.SUBCONTRACTOR_STAFF]: ['/subcontractor'],
   [USER_ROLES.DRIVER]: ['/driver'],
+  [USER_ROLES.FACTORY_STAFF]: ['/factory'],
 };
 
 export function getDashboardForRole(role: UserRole): string {

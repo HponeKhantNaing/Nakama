@@ -3,6 +3,7 @@ export const USER_ROLES = {
   SHINWA_STAFF: 'SHINWA_STAFF',
   SUBCONTRACTOR_STAFF: 'SUBCONTRACTOR_STAFF',
   DRIVER: 'DRIVER',
+  FACTORY_STAFF: 'FACTORY_STAFF',
 } as const;
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];

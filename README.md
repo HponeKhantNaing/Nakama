@@ -1,142 +1,139 @@
 # Maruichi Transport Management System (MTMS)
 
-Production-ready B2B Logistics and Fleet Management System replacing Google Sheets, phone calls, and fax with a unified web platform.
+Production-ready B2B Logistics and Fleet Management System — **Key Coffee 横持輸送** workflow for 20号物流センター.
 
 ## Tech Stack
 
 - **Frontend:** Next.js 14 App Router, TypeScript, TailwindCSS, Shadcn UI
 - **Backend:** Next.js Route Handlers, Server Actions
-- **Database:** AWS RDS PostgreSQL with Prisma ORM
+- **Database:** PostgreSQL with Prisma ORM
 - **Auth:** NextAuth (JWT + Credentials)
-- **Storage:** AWS S3 (presigned URLs)
 - **Real-time:** Server-Sent Events (SSE)
-- **Charts:** Recharts
-- **Deployment:** AWS Amplify
-- **Infrastructure:** AWS CDK
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment variables
 cp .env.example .env
+```
 
-# Start PostgreSQL locally (Docker)
+### 1. Start PostgreSQL (Docker)
+
+```bash
+# First time
 docker run --name mtms-postgres -e POSTGRES_USER=mtms_admin -e POSTGRES_PASSWORD=password -e POSTGRES_DB=mtms -p 5433:5432 -d postgres:16
 
-# Update .env with local database URL
-# DATABASE_URL="postgresql://mtms_admin:password@localhost:5433/mtms?schema=public"
-# DIRECT_URL="postgresql://mtms_admin:password@localhost:5433/mtms?schema=public"
-# NEXTAUTH_SECRET="your-secret-here"
+# If container already exists but stopped
+docker start mtms-postgres
+```
 
-# Run migrations and seed
-npx prisma migrate dev --name init
+`.env` example:
+
+```
+DATABASE_URL="postgresql://mtms_admin:password@localhost:5433/mtms?schema=public"
+DIRECT_URL="postgresql://mtms_admin:password@localhost:5433/mtms?schema=public"
+NEXTAUTH_SECRET="your-secret-here"
+```
+
+### 2. Database setup
+
+```bash
+npx prisma db push
 npm run db:seed
+```
 
-# Start development server (accessible on phone/tablet via local network)
-npm run dev
+After Yokomochi schema changes:
 
-# Start on localhost only
-npm run dev:local
+```bash
+npm run db:yokomochi-reset
+npm run db:seed
+```
+
+### 3. Run dev server
+
+```bash
+npm run dev          # network URL for phone/tablet
+npm run dev:local    # localhost only
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
-### Phone & Tablet (same Wi-Fi)
-
-Run `npm run dev` — the terminal prints your network URL, for example:
-
-```
-Phone:   http://192.168.1.42:3000
-Tablet:  http://192.168.1.42:3000
-```
-
-Open that address on your phone or tablet browser. Both devices must be on the same Wi-Fi network as your computer.
 ## Demo Accounts
 
-| Email | Role | Password |
-|-------|------|----------|
-| staff@maruichi.jp | Maruichi Staff | password123 |
-| staff@shinwa.jp | Shinwa Staff | password123 |
-| staff@kansai-logistics.jp | Subcontractor | password123 |
-| driver@shinwa.jp | Driver | password123 |
+Password for all: **password123**
+
+| Email | Role | Dashboard |
+|-------|------|-----------|
+| staff@maruichi.jp | 20号物流センター (Warehouse) | `/warehouse` |
+| staff@keycoffee.jp | キーコーヒー飲料工場 (Factory) | `/factory/requests` |
+| staff@shinwa.jp | 建会社 (Carrier) | `/carrier/requests` |
+| staff@kansai-logistics.jp | Subcontractor | `/subcontractor` |
+| driver@shinwa.jp | Driver 1 | `/driver/active-job` |
+| driver2@shinwa.jp | Driver 2 | `/driver/active-job` |
+
+Internal fleet drivers (no login): **小野**, **浅川** — trucks `WH-10T-A`, `WH-10T-B`
+
+## Key Coffee Yokomochi (横持輸送)
+
+**Theme:** キーコーヒー横持輸送をシステム化
+
+**Process:** 全体像 → 情報整理 → 課題 → 要件定義 → システム設計 → 開発
+
+**Docs:** `docs/keycoffee-yokomochi/`
+
+### 5-Phase Workflow
+
+| Phase | Who | Route | Action |
+|-------|-----|-------|--------|
+| 1 | Warehouse → Factory | `/warehouse/factory-requests` | Create request |
+| 1 | Factory | `/factory/requests` | Respond FULL / PARTIAL / REJECTED |
+| 1 | Warehouse | `/warehouse/negotiations` | Approve partial (if needed) |
+| 2 | Warehouse | `/warehouse/factory-requests` | **配車便数を計算** (if stuck at APPROVED) |
+| 2 | Warehouse | `/warehouse/internal-fleet` | Assign 小野 / 浅川 on timeline |
+| 3 | Warehouse | `/warehouse/external-carrier` | Send remaining trips to 建会社 |
+| 3 | Carrier | `/carrier/requests` | Respond with available trips |
+| 3 | Warehouse | `/warehouse/subcontractors` | View auto subcontract split |
+| 3 | Carrier | `/carrier/accepted` | Assign drivers |
+| 4 | Driver | `/driver/active-job` | 工場到着 → 積込 → 配送 → 倉庫到着 |
+| 5 | Warehouse | `/warehouse/factory-requests` | Approve arrival → COMPLETED |
+
+**Trip rule:** 10t truck = **16 pallets/trip** → `totalTrips = ceil(pallets / 16)`
+
+### Demo flow (recommended)
+
+1. **Warehouse** — create 100-pallet request
+2. **Factory** — respond PARTIAL (70 pallets) or FULL
+3. **Warehouse** — Negotiations → Approve **or** click **配車便数を計算**
+4. **Internal Fleet** — assign trips to internal drivers
+5. **External Carrier** — send remainder to 建会社
+6. **Carrier** — respond + assign `driver@shinwa.jp`
+7. **Driver** — complete trip steps on mobile
+8. **Warehouse** — Approve Arrival
 
 ## Project Structure
 
 ```
 app/
-  (auth)/login/           # Authentication
   (dashboard)/
-    maruichi/             # Shipper dashboard
-    shinwa/               # Carrier dashboard
-    subcontractor/        # Subcontractor dashboard
-    driver/               # Mobile driver dashboard
-  api/
-    auth/                 # NextAuth
-    transport/            # Transport API
-    notifications/        # Notifications + SSE stream
-    upload/presign/       # S3 presigned URLs
-  actions/                # Server Actions
-components/
-  forms/ tables/ charts/ cards/ dialogs/ layout/
-lib/
-  prisma/ auth/ s3/ sse/ rbac/
-infrastructure/           # AWS CDK
-prisma/                   # Schema + migrations + seed
+    warehouse/          # 20号物流センター (Phase 1–3, 5)
+    factory/            # 飲料工場
+    carrier/            # 建会社
+    driver/             # Mobile driver dashboard
+  actions/yokomochi.ts  # Yokomochi server actions
+components/yokomochi/   # Accordion, scheduler, carrier panels
+docs/keycoffee-yokomochi/
+lib/yokomochi/          # Trip calc, carrier allocation
+prisma/                 # Schema + seed + reset-yokomochi-tables.sql
 ```
 
-## AWS Deployment
+## Troubleshooting
 
-### 1. Deploy Infrastructure (CDK)
-
-```bash
-cd infrastructure
-npm install
-npx cdk bootstrap
-npx cdk deploy
-```
-
-### 2. Configure Amplify Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | Pooled connection string (with pgbouncer) |
-| `DIRECT_URL` | Direct RDS connection for migrations |
-| `NEXTAUTH_URL` | Amplify app URL |
-| `NEXTAUTH_SECRET` | JWT secret (32+ chars) |
-| `AWS_REGION` | ap-northeast-1 |
-| `AWS_S3_BUCKET_NAME` | From CDK output |
-| `AWS_ACCESS_KEY_ID` | IAM credentials |
-| `AWS_SECRET_ACCESS_KEY` | IAM credentials |
-
-### 3. RDS Connection Pooling
-
-Use Prisma connection pooling with PgBouncer or RDS Proxy:
-
-```
-DATABASE_URL="postgresql://user:pass@host:5432/mtms?pgbouncer=true&connection_limit=1"
-DIRECT_URL="postgresql://user:pass@host:5432/mtms"
-```
-
-### 4. Backup Strategy
-
-- RDS automated backups: 7-day retention (configured in CDK)
-- Point-in-time recovery enabled
-- S3 versioning for upload files
-- Run `prisma migrate deploy` in CI/CD pipeline
-
-## Production Best Practices
-
-1. **Security:** Rotate `NEXTAUTH_SECRET` quarterly; use AWS Secrets Manager for DB credentials
-2. **Database:** Enable RDS Multi-AZ for production; use RDS Proxy for connection pooling
-3. **Monitoring:** Add CloudWatch alarms for RDS CPU, connections, and Amplify build failures
-4. **SSE Scaling:** For multi-instance deployments, replace in-memory SSE with Redis pub/sub or API Gateway WebSocket
-5. **Rate Limiting:** Add middleware rate limiting on `/api/auth` and `/api/upload`
-6. **HTTPS:** Enforce via Amplify custom domain with ACM certificate
-7. **CORS:** Restrict S3 CORS to your Amplify domain in production
-8. **Audit:** Enable CloudTrail and RDS audit logging for compliance
+| Problem | Fix |
+|---------|-----|
+| `Can't reach database server at localhost:5433` | `docker start mtms-postgres` |
+| Login works but actions fail after DB reset | Log out and log back in |
+| APPROVED but no trips | Click **配車便数を計算** on Factory Requests |
+| Factory FK error on create | Re-login as `staff@maruichi.jp` |
 
 ## License
 

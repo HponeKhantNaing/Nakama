@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default async function MaruichiPage() {
+export default function WarehousePage() {
   redirect('/warehouse/factory-requests');
 }
