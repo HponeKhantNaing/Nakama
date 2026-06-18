@@ -15,6 +15,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { submitFactoryResponse } from '@/app/actions/yokomochi';
 
+const BOXES_PER_PALLET = 16;
+
+function calculatePalletsFromBoxes(boxes: number) {
+  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
+}
+
+function isPositiveIntegerInput(value: string) {
+  return value === '' || /^[1-9]\d*$/.test(value);
+}
+
 export function FactoryRequestsClient({
   orders,
   deliveries,
@@ -25,22 +35,27 @@ export function FactoryRequestsClient({
   const router = useRouter();
   const { t } = useTranslation();
   const [selected, setSelected] = useState('');
+  const [availableBoxes, setAvailableBoxes] = useState('');
   const [isPending, startTransition] = useTransition();
 
   const pending = orders.filter((o) => !o.factoryResponse && o.status !== 'CANCELLED');
+  const selectedOrder = orders.find((o) => o.id === selected);
+  const availableBoxCount = Number(availableBoxes) || 0;
+  const availablePallets = calculatePalletsFromBoxes(availableBoxCount);
 
   function respond(status: 'FULL' | 'PARTIAL' | 'REJECTED') {
-    if (!selected) return;
-    const order = orders.find((o) => o.id === selected);
-    if (!order) return;
+    if (!selectedOrder) return;
     const fd = document.getElementById('factory-response-form') as HTMLFormElement;
+    if (!fd.reportValidity()) return;
     const form = new FormData(fd);
+    const submittedBoxes = Number(form.get('availableBoxes') ?? selectedOrder.factoryRequest.requestedBoxes);
     startTransition(async () => {
       await submitFactoryResponse({
         yokomochiOrderId: selected,
-        availableQuantity: Number(form.get('availableQuantity') ?? order.factoryRequest.requestedQuantity),
-        availablePallets: Number(form.get('availablePallets') ?? order.factoryRequest.requestedPallets),
-        availableBoxes: Number(form.get('availableBoxes') ?? order.factoryRequest.requestedBoxes),
+        // Quantity remains for the existing schema, but boxes are the factory response source of truth.
+        availableQuantity: submittedBoxes,
+        availablePallets: calculatePalletsFromBoxes(submittedBoxes),
+        availableBoxes: submittedBoxes,
         availableDate: String(form.get('availableDate')),
         negotiationStatus: status,
         notes: String(form.get('notes') ?? ''),
@@ -68,7 +83,11 @@ export function FactoryRequestsClient({
             <select
               className="mb-3 w-full rounded-lg border px-3 py-2 text-sm"
               value={selected}
-              onChange={(e) => setSelected(e.target.value)}
+              onChange={(e) => {
+                const order = orders.find((o) => o.id === e.target.value);
+                setSelected(e.target.value);
+                setAvailableBoxes(order ? String(order.factoryRequest.requestedBoxes) : '');
+              }}
             >
               <option value="">Select request</option>
               {pending.map((o) => (
@@ -77,19 +96,32 @@ export function FactoryRequestsClient({
                 </option>
               ))}
             </select>
-            {selected && (
-              <form id="factory-response-form" className="grid gap-3 md:grid-cols-2">
+            {selectedOrder && (
+              <form key={selected} id="factory-response-form" className="grid gap-3 md:grid-cols-2">
                 <div>
                   <Label>Available Pallets</Label>
-                  <Input name="availablePallets" type="number" defaultValue={70} />
+                  {/* Pallets follow available boxes so typing and number-stepper changes stay synced. */}
+                  <Input
+                    name="availablePallets"
+                    type="number"
+                    readOnly
+                    value={availablePallets}
+                  />
                 </div>
                 <div>
                   <Label>Available Boxes</Label>
-                  <Input name="availableBoxes" type="number" defaultValue={350} />
-                </div>
-                <div>
-                  <Label>Available Quantity</Label>
-                  <Input name="availableQuantity" type="number" defaultValue={700} />
+                  <Input
+                    name="availableBoxes"
+                    type="number"
+                    min={1}
+                    required
+                    value={availableBoxes}
+                    onChange={(event) => {
+                      if (isPositiveIntegerInput(event.target.value)) {
+                        setAvailableBoxes(event.target.value);
+                      }
+                    }}
+                  />
                 </div>
                 <div>
                   <Label>Available Date</Label>

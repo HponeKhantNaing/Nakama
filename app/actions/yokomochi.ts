@@ -134,9 +134,9 @@ export async function createFactoryRequest(
 
 const factoryResponseSchema = z.object({
   yokomochiOrderId: z.string(),
-  availableQuantity: z.coerce.number().int().min(0),
-  availablePallets: z.coerce.number().int().min(0),
-  availableBoxes: z.coerce.number().int().min(0),
+  availableQuantity: z.coerce.number().int().positive(),
+  availablePallets: z.coerce.number().int().positive(),
+  availableBoxes: z.coerce.number().int().positive(),
   availableDate: z.string(),
   negotiationStatus: z.enum(['FULL', 'PARTIAL', 'REJECTED']),
   notes: z.string().optional(),

@@ -19,6 +19,10 @@ function calculatePalletsFromBoxes(boxes: number) {
   return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
 }
 
+function isPositiveIntegerInput(value: string) {
+  return value === '' || /^[1-9]\d*$/.test(value);
+}
+
 type Order = {
   id: string;
   orderNo: string;
@@ -438,7 +442,11 @@ export function CreateFactoryRequestForm({
           min={1}
           required
           value={requestedBoxes}
-          onChange={(event) => setRequestedBoxes(event.target.value)}
+          onChange={(event) => {
+            if (isPositiveIntegerInput(event.target.value)) {
+              setRequestedBoxes(event.target.value);
+            }
+          }}
         />
       </div>
       <div className="space-y-2">
