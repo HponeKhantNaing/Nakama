@@ -51,6 +51,7 @@ const navIconMap: Partial<Record<TranslationKey, React.ReactNode>> = {
   'nav.subcontractors': <Users className="h-5 w-5" />,
   'nav.deliveryHistory': <History className="h-5 w-5" />,
   'nav.acceptedJobs': <ClipboardList className="h-5 w-5" />,
+  'nav.driversAndVehicles': <Users className="h-5 w-5" />,
   'nav.fleet': <Truck className="h-5 w-5" />,
   'nav.subcontract': <GitBranch className="h-5 w-5" />,
   'nav.assignedOrders': <ClipboardList className="h-5 w-5" />,

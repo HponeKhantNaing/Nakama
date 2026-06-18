@@ -22,6 +22,7 @@ import {
   getCarrierEligibleTrips,
   splitAmongSubcontractors,
 } from '@/lib/yokomochi/carrier-allocation';
+import { getYokomochiVehicleLabel } from '@/lib/yokomochi/vehicle-capacity';
 import { ActionResult } from '@/types';
 import type { Prisma } from '@prisma/client';
 
@@ -309,7 +310,19 @@ export async function getWarehouseYokomochiOrders() {
       },
       factoryResponse: true,
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
-      trips: { orderBy: { tripNo: 'asc' }, include: { driverSchedule: true, internalFleetAssignment: { include: { driver: true, truck: true } } } },
+      trips: {
+        orderBy: { tripNo: 'asc' },
+        include: {
+          driverSchedule: true,
+          internalFleetAssignment: { include: { driver: true, truck: true } },
+          driverTask: {
+            include: {
+              driver: { include: { user: { select: { email: true } } } },
+              truck: true,
+            },
+          },
+        },
+      },
       deliveryVerification: true,
       deliveryForm: true,
     },
@@ -325,6 +338,17 @@ export async function getFactoryYokomochiOrders() {
       factoryRequest: { include: { warehouseCompany: { select: { id: true, name: true } } } },
       factoryResponse: true,
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
+      trips: {
+        orderBy: { tripNo: 'asc' },
+        include: {
+          driverTask: {
+            include: {
+              driver: { include: { user: { select: { email: true } } } },
+              truck: true,
+            },
+          },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -347,6 +371,94 @@ export async function getDriverActiveYokomochiTask() {
   });
 }
 
+export async function getDriverYokomochiHistory() {
+  const session = await requireRole(['DRIVER']);
+  const driver = await prisma.driver.findFirst({ where: { userId: session.user.id } });
+  if (!driver) return [];
+
+  return prisma.driverTask.findMany({
+    where: { driverId: driver.id, status: { in: ['COMPLETED', 'CANCELLED'] } },
+    include: {
+      trip: { include: { yokomochiOrder: true } },
+      truck: true,
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+}
+
+export async function getYokomochiDeliveryTracking() {
+  const session = await requireRole(['MARUICHI_STAFF', 'FACTORY_STAFF']);
+
+  const orderWhere =
+    session.user.role === UserRole.MARUICHI_STAFF
+      ? { factoryRequest: { warehouseCompanyId: session.user.companyId } }
+      : { factoryRequest: { factoryCompanyId: session.user.companyId } };
+
+  const orders = await prisma.yokomochiOrder.findMany({
+    where: {
+      ...orderWhere,
+      trips: { some: { driverTask: { isNot: null } } },
+    },
+    include: {
+      factoryRequest: {
+        include: {
+          factoryCompany: { select: { name: true } },
+          warehouseCompany: { select: { name: true } },
+        },
+      },
+      trips: {
+        where: { driverTask: { isNot: null } },
+        include: {
+          driverTask: {
+            include: {
+              driver: { include: { user: { select: { email: true } } } },
+              truck: true,
+            },
+          },
+        },
+        orderBy: { tripNo: 'asc' },
+      },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const isWarehouse = session.user.role === UserRole.MARUICHI_STAFF;
+
+  return orders.flatMap((order) =>
+    order.trips
+      .filter((trip) => trip.driverTask)
+      .map((trip) => {
+        const task = trip.driverTask!;
+        const truck = task.truck;
+        return {
+          orderNo: order.orderNo,
+          tripCode: trip.tripCode,
+          partnerName: isWarehouse
+            ? (order.factoryRequest?.factoryCompany?.name ?? '—')
+            : (order.factoryRequest?.warehouseCompany?.name ?? '—'),
+          cargoType: task.cargoType ?? order.cargoType,
+          boxes: task.boxes,
+          pallets: task.pallets,
+          pickupLocation: task.pickupLocation,
+          destination: task.destination,
+          driverName: task.driver.name,
+          driverPhone: task.driver.phone,
+          driverEmail: task.driver.user?.email ?? null,
+          vehicleLabel: truck ? getYokomochiVehicleLabel(truck.truckType) : null,
+          plateNumber: truck?.plateNumber ?? null,
+          taskStatus: task.status,
+          tripStatus: trip.status,
+          arrivedFactoryAt: task.arrivedFactoryAt,
+          loadedAt: task.loadedAt,
+          startedAt: task.startedAt,
+          arrivedWarehouseAt: task.arrivedWarehouseAt,
+          completedAt: task.completedAt,
+          updatedAt: task.updatedAt,
+        };
+      })
+  );
+}
+
 export async function updateDriverTaskStatus(
   taskId: string,
   status: 'ARRIVED_FACTORY' | 'LOADED_CARGO' | 'IN_TRANSIT' | 'ARRIVED_WAREHOUSE'
@@ -363,6 +475,13 @@ export async function updateDriverTaskStatus(
 
   const now = new Date();
 
+  const tripStatusForStep: Partial<Record<typeof status, YokomochiTripStatus>> = {
+    ARRIVED_FACTORY: YokomochiTripStatus.IN_PROGRESS,
+    LOADED_CARGO: YokomochiTripStatus.IN_PROGRESS,
+    IN_TRANSIT: YokomochiTripStatus.IN_PROGRESS,
+    ARRIVED_WAREHOUSE: YokomochiTripStatus.ARRIVED_WAREHOUSE,
+  };
+
   await prisma.$transaction(async (tx) => {
     await tx.driverTask.update({
       where: { id: taskId },
@@ -374,6 +493,21 @@ export async function updateDriverTaskStatus(
         ...(status === 'ARRIVED_WAREHOUSE' && { arrivedWarehouseAt: now }),
       },
     });
+
+    const nextTripStatus = tripStatusForStep[status];
+    if (nextTripStatus) {
+      await tx.yokomochiTrip.update({
+        where: { id: task.trip.id },
+        data: { status: nextTripStatus },
+      });
+    }
+
+    if (['ARRIVED_FACTORY', 'LOADED_CARGO', 'IN_TRANSIT'].includes(status)) {
+      await tx.yokomochiOrder.update({
+        where: { id: task.trip.yokomochiOrderId },
+        data: { status: YokomochiOrderStatus.IN_PROGRESS },
+      });
+    }
 
     if (status === 'ARRIVED_WAREHOUSE') {
       await tx.yokomochiOrder.update({
@@ -395,6 +529,7 @@ export async function updateDriverTaskStatus(
 
   revalidatePath('/driver');
   revalidatePath('/warehouse');
+  revalidatePath('/factory');
   return { success: true };
 }
 
@@ -453,10 +588,17 @@ export async function verifyWarehouseDelivery(input: {
         where: { id: task.id },
         data: { status: 'COMPLETED', completedAt: new Date() },
       });
+
+      await tx.yokomochiTrip.updateMany({
+        where: { yokomochiOrderId: input.yokomochiOrderId },
+        data: { status: YokomochiTripStatus.COMPLETED },
+      });
     }
   });
 
   revalidatePath('/warehouse');
+  revalidatePath('/factory');
+  revalidatePath('/driver');
   return { success: true };
 }
 
@@ -679,9 +821,22 @@ export async function submitCarrierResponse(
     }
 
     const eligible = getCarrierEligibleTrips(request.yokomochiOrder.trips);
+
+    if (data.availableTrips > 0 && eligible.length === 0) {
+      return {
+        success: false,
+        error:
+          'No carrier-eligible trips remain on this order. Ask the warehouse to release trips or send a new request.',
+      };
+    }
+
     const carrierTripCount = Math.min(data.availableTrips, eligible.length);
     const carrierTripIds = eligible.slice(0, carrierTripCount).map((t) => t.id);
     const subcontractTripIds = eligible.slice(carrierTripCount).map((t) => t.id);
+
+    if (data.availableTrips > 0 && carrierTripCount === 0) {
+      return { success: false, error: 'No trips could be assigned to your fleet' };
+    }
 
     const subcontractors = await prisma.company.findMany({
       where: { type: CompanyType.SUBCONTRACTOR },
@@ -696,7 +851,7 @@ export async function submitCarrierResponse(
     const requestStatus =
       data.availableTrips === 0
         ? CarrierRequestStatus.REJECTED
-        : carrierTripCount < eligible.length
+        : carrierTripCount < data.availableTrips || carrierTripCount < eligible.length
           ? CarrierRequestStatus.PARTIAL
           : CarrierRequestStatus.ACCEPTED;
 
@@ -777,6 +932,8 @@ export async function submitCarrierResponse(
 
     revalidatePath('/warehouse');
     revalidatePath('/carrier');
+    revalidatePath('/carrier/requests');
+    revalidatePath('/carrier/accepted');
     return {
       success: true,
       data: {
