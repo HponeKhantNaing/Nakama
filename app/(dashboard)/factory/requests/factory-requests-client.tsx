@@ -5,13 +5,25 @@ import { useRouter } from 'next/navigation';
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
 import { factoryNavItems } from '@/lib/nav/yokomochi';
 import { YokomochiOrderAccordion } from '@/components/yokomochi/YokomochiOrderAccordion';
+import {
+  YokomochiDeliveryTrackingTable,
+  type YokomochiDeliveryTrackingRow,
+} from '@/components/yokomochi/YokomochiDeliveryTrackingTable';
+import { useTranslation } from '@/lib/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { submitFactoryResponse } from '@/app/actions/yokomochi';
 
-export function FactoryRequestsClient({ orders }: { orders: any[] }) {
+export function FactoryRequestsClient({
+  orders,
+  deliveries,
+}: {
+  orders: any[];
+  deliveries: YokomochiDeliveryTrackingRow[];
+}) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [selected, setSelected] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -41,6 +53,14 @@ export function FactoryRequestsClient({ orders }: { orders: any[] }) {
     <DashboardShell titleKey="dashboard.factory" navItems={factoryNavItems}>
       <div className="space-y-6">
         <PageHeader titleKey="nav.factoryRequests" />
+
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold">{t('delivery.trackingTitle')}</h2>
+            <p className="text-xs text-muted-foreground">{t('delivery.trackingDesc')}</p>
+          </div>
+          <YokomochiDeliveryTrackingTable rows={deliveries} />
+        </section>
 
         {pending.length > 0 && (
           <div className="rounded-xl border bg-white p-4">

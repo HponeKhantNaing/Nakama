@@ -15,6 +15,7 @@ export const factoryNavItems: { href: string; labelKey: TranslationKey }[] = [
 
 export const carrierNavItems: { href: string; labelKey: TranslationKey }[] = [
   { href: '/carrier/requests', labelKey: 'nav.newRequests' },
+  { href: '/carrier/fleet', labelKey: 'nav.driversAndVehicles' },
   { href: '/carrier/accepted', labelKey: 'nav.acceptedJobs' },
   { href: '/carrier/subcontract', labelKey: 'nav.subcontract' },
   { href: '/carrier/completed', labelKey: 'nav.deliveredRequests' },

@@ -116,7 +116,7 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                       e.preventDefault();
                       const fd = new FormData(e.currentTarget);
                       startTransition(async () => {
-                        await submitCarrierResponse({
+                        const result = await submitCarrierResponse({
                           carrierRequestId: req.id,
                           availableTrips: Number(fd.get('availableTrips')),
                           truckCount: Number(fd.get('truckCount')),
@@ -126,6 +126,10 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                           estimatedPickupTime: String(fd.get('estimatedPickupTime') || ''),
                           notes: String(fd.get('notes') || ''),
                         });
+                        if (result.success) {
+                          router.push('/carrier/accepted');
+                          return;
+                        }
                         router.refresh();
                       });
                     }}

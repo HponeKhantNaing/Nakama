@@ -1,33 +1,20 @@
 'use client';
 
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
-import { StatusTable } from '@/components/tables/status-table';
+import { DriverCompletedJobsTable } from '@/components/yokomochi/DriverCompletedJobsTable';
+import type { DriverCompletedJobRow } from '@/components/yokomochi/DriverCompletedJobsTable';
 
 const navItems = [
   { href: '/driver/active-job', labelKey: 'nav.activeJob' as const },
   { href: '/driver/history', labelKey: 'nav.history' as const },
 ];
 
-type Request = {
-  id: string;
-  requestNo: string;
-  origin: string;
-  destination: string;
-  status: string;
-  updatedAt: Date;
-  tripAllocation?: {
-    driver: { name: string };
-    vehicle?: { plateNumber: string } | null;
-    truck?: { plateNumber: string } | null;
-  } | null;
-};
-
-export function DriverHistoryClient({ history }: { history: Request[] }) {
+export function DriverHistoryClient({ history }: { history: DriverCompletedJobRow[] }) {
   return (
     <DashboardShell titleKey="dashboard.driver" navItems={navItems}>
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="space-y-6">
         <PageHeader titleKey="driver.completedHistory" />
-        <StatusTable requests={history} />
+        <DriverCompletedJobsTable rows={history} />
       </div>
     </DashboardShell>
   );
