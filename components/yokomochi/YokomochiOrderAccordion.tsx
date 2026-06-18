@@ -12,6 +12,13 @@ import { handleNegotiation, verifyWarehouseDelivery, confirmOrderTrips } from '@
 import { calculateTripsFromPallets } from '@/lib/yokomochi/trip-calculation';
 import { ChevronDown, ChevronRight, ArrowRight, Truck } from 'lucide-react';
 
+const BOXES_PER_PALLET = 16;
+const DEFAULT_REQUESTED_BOXES = '500';
+
+function calculatePalletsFromBoxes(boxes: number) {
+  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
+}
+
 type Order = {
   id: string;
   orderNo: string;
@@ -24,7 +31,6 @@ type Order = {
   factoryRequest: {
     requestedPallets: number;
     requestedBoxes: number;
-    requestedQuantity: number;
     requestedDate: Date;
     factoryCompany?: { name: string };
     warehouseCompany?: { name: string };
@@ -374,18 +380,21 @@ export function CreateFactoryRequestForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [requestedBoxes, setRequestedBoxes] = useState(DEFAULT_REQUESTED_BOXES);
+  const requestedBoxCount = Number(requestedBoxes) || 0;
+  const requestedPallets = calculatePalletsFromBoxes(requestedBoxCount);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const boxes = Number(fd.get('requestedBoxes'));
     setError(null);
     startTransition(async () => {
       const { createFactoryRequest } = await import('@/app/actions/yokomochi');
       const result = await createFactoryRequest({
         factoryCompanyId: String(fd.get('factoryCompanyId')),
-        requestedQuantity: Number(fd.get('requestedQuantity')),
-        requestedPallets: Number(fd.get('requestedPallets')),
-        requestedBoxes: Number(fd.get('requestedBoxes')),
+        requestedPallets: calculatePalletsFromBoxes(boxes),
+        requestedBoxes: boxes,
         requestedDate: String(fd.get('requestedDate')),
         cargoType: String(fd.get('cargoType') || ''),
         productName: String(fd.get('productName') || ''),
@@ -397,6 +406,7 @@ export function CreateFactoryRequestForm({
       }
       router.refresh();
       (e.target as HTMLFormElement).reset();
+      setRequestedBoxes(DEFAULT_REQUESTED_BOXES);
     });
   }
 
@@ -421,16 +431,20 @@ export function CreateFactoryRequestForm({
         <Input name="cargoType" placeholder="飲料" defaultValue="飲料" />
       </div>
       <div className="space-y-2">
-        <Label>Quantity</Label>
-        <Input name="requestedQuantity" type="number" required defaultValue={1000} />
+        <Label>Boxes</Label>
+        <Input
+          name="requestedBoxes"
+          type="number"
+          min={1}
+          required
+          value={requestedBoxes}
+          onChange={(event) => setRequestedBoxes(event.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label>Pallets</Label>
-        <Input name="requestedPallets" type="number" required defaultValue={100} />
-      </div>
-      <div className="space-y-2">
-        <Label>Boxes</Label>
-        <Input name="requestedBoxes" type="number" required defaultValue={500} />
+        {/* Pallets are derived from boxes so arrow-key and stepper changes stay in sync. */}
+        <Input name="requestedPallets" type="number" readOnly value={requestedPallets} />
       </div>
       <div className="space-y-2">
         <Label>Requested Date</Label>

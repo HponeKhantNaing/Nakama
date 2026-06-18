@@ -26,6 +26,11 @@ import { ActionResult } from '@/types';
 import type { Prisma } from '@prisma/client';
 
 type Tx = Prisma.TransactionClient;
+const BOXES_PER_PALLET = 16;
+
+function calculatePalletsFromBoxes(boxes: number) {
+  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
+}
 
 async function createTripsFromFactoryResponse(
   tx: Tx,
@@ -67,9 +72,8 @@ async function createTripsFromFactoryResponse(
 
 const factoryRequestSchema = z.object({
   factoryCompanyId: z.string(),
-  requestedQuantity: z.coerce.number().int().positive(),
-  requestedPallets: z.coerce.number().int().positive(),
-  requestedBoxes: z.coerce.number().int().min(0),
+  requestedPallets: z.coerce.number().int().positive().optional(),
+  requestedBoxes: z.coerce.number().int().positive(),
   requestedDate: z.string(),
   cargoType: z.string().optional(),
   productName: z.string().optional(),
@@ -87,6 +91,7 @@ export async function createFactoryRequest(
     const data = parsed.data;
     const orderNo = generateOrderNo();
     const createdById = await resolveSessionUserId(session);
+    const requestedPallets = calculatePalletsFromBoxes(data.requestedBoxes);
 
     const order = await prisma.$transaction(async (tx) => {
       const yokomochiOrder = await tx.yokomochiOrder.create({
@@ -104,8 +109,9 @@ export async function createFactoryRequest(
           warehouseCompanyId: session.user.companyId,
           factoryCompanyId: data.factoryCompanyId,
           createdById,
-          requestedQuantity: data.requestedQuantity,
-          requestedPallets: data.requestedPallets,
+          // Quantity is kept for the existing schema, but boxes are now the source of truth.
+          requestedQuantity: data.requestedBoxes,
+          requestedPallets,
           requestedBoxes: data.requestedBoxes,
           requestedDate: new Date(data.requestedDate),
           cargoType: data.cargoType,
