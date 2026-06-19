@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { updateDriverTaskStatus } from '@/app/actions/yokomochi';
 import { formatDate } from '@/lib/utils';
+import { YokomochiWarehouseQRCard } from '@/components/yokomochi/YokomochiWarehouseQRCard';
 import { ArrowDown, Package, Truck } from 'lucide-react';
 
 const navItems = [
@@ -42,6 +43,12 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const action = task ? ACTION_MAP[task.status] : null;
+
+  useEffect(() => {
+    if (task?.status !== 'ARRIVED_WAREHOUSE') return;
+    const timer = setInterval(() => router.refresh(), 4000);
+    return () => clearInterval(timer);
+  }, [task?.status, router]);
 
   return (
     <DashboardShell titleKey="dashboard.driver" navItems={navItems}>
@@ -106,9 +113,15 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
               )}
 
               {task.status === 'ARRIVED_WAREHOUSE' && (
-                <p className="text-center text-sm text-muted-foreground">
-                  倉庫確認待ち — 完了後に履歴へ移動します
-                </p>
+                <>
+                  <YokomochiWarehouseQRCard
+                    tripCode={task.trip.tripCode}
+                    orderNo={task.trip.yokomochiOrder.orderNo}
+                  />
+                  <p className="text-center text-sm text-muted-foreground">
+                    倉庫確認待ち — 倉庫が下記トリップコードをスキャンすると完了します
+                  </p>
+                </>
               )}
             </CardContent>
           </Card>

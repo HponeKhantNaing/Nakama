@@ -11,6 +11,7 @@ import { cn, formatDate } from '@/lib/utils';
 import { handleNegotiation, verifyWarehouseDelivery, confirmOrderTrips } from '@/app/actions/yokomochi';
 import { calculateTripsFromPallets } from '@/lib/yokomochi/trip-calculation';
 import { ChevronDown, ChevronRight, ArrowRight, Truck } from 'lucide-react';
+import { BusinessDeliveryCalendar } from '@/components/yokomochi/BusinessDeliveryCalendar';
 
 const BOXES_PER_PALLET = 16;
 const DEFAULT_REQUESTED_BOXES = '500';
@@ -45,6 +46,23 @@ type Order = {
     negotiationStatus: string;
     availableDate: Date;
   } | null;
+  factoryNegotiation?: {
+    requestedBoxes: number;
+    availableBoxes: number;
+    remainingBoxes: number;
+    availableDate: Date;
+    nextAvailableDate: Date | null;
+    status: string;
+  } | null;
+  deliverySchedules?: {
+    id: string;
+    scheduleNo: number;
+    deliveryDate: Date;
+    boxes: number;
+    pallets: number;
+    totalTrips: number;
+    status: string;
+  }[];
   negotiationHistory: { action: string; message: string | null; createdAt: Date }[];
   trips?: { id: string; tripNo: number; tripCode: string; pallets: number; status: string }[];
   deliveryVerification?: { status: string; notes: string | null } | null;
@@ -139,6 +157,7 @@ export function YokomochiOrderAccordion({
         const open = expanded === order.id;
         const fr = order.factoryRequest;
         const res = order.factoryResponse;
+        const neg = order.factoryNegotiation;
         const calc = res ? calculateTripsFromPallets(res.availablePallets) : null;
         if (!fr) return null;
         const partner = requestPartnerName(fr, mode);
@@ -147,28 +166,33 @@ export function YokomochiOrderAccordion({
 
         return (
           <div key={order.id} className="border-b last:border-b-0">
-            <button
-              type="button"
-              className={cn('flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30', open && 'bg-muted/20')}
-              onClick={() => setExpanded(open ? null : order.id)}
+            <div
+              className={cn('flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/30', open && 'bg-muted/20')}
             >
-              <span className="hidden w-[120px] font-mono text-xs md:block">{order.orderNo}</span>
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-xs text-muted-foreground md:hidden">{order.orderNo}</p>
-                <p className="truncate text-sm font-medium">
-                  {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
-                </p>
-                <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
-              </div>
-              <span className="hidden w-[80px] text-sm md:block">{fr.requestedPallets}</span>
-              <span className="hidden w-[100px] md:block">
-                <Badge variant="outline" className="text-[10px]">
-                  {order.status.replace(/_/g, ' ')}
-                </Badge>
-              </span>
-              <span className="hidden w-[80px] text-sm font-medium md:block">{order.totalTrips || trips.length || '—'}</span>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                onClick={() => setExpanded(open ? null : order.id)}
+              >
+                <span className="hidden w-[120px] font-mono text-xs md:block">{order.orderNo}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-xs text-muted-foreground md:hidden">{order.orderNo}</p>
+                  <p className="truncate text-sm font-medium">
+                    {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+                </div>
+                <span className="hidden w-[80px] text-sm md:block">{fr.requestedPallets}</span>
+                <span className="hidden w-[100px] md:block">
+                  <Badge variant="outline" className="text-[10px]">
+                    {order.status.replace(/_/g, ' ')}
+                  </Badge>
+                </span>
+                <span className="hidden w-[80px] text-sm font-medium md:block">{order.totalTrips || trips.length || '—'}</span>
+                {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
               {mode === 'warehouse' && next && (
-                <div className="shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                <div className="shrink-0">
                   {next.action === 'confirm-trips' ? (
                     <Button
                       size="sm"
@@ -184,17 +208,17 @@ export function YokomochiOrderAccordion({
                       {next.label}
                     </Button>
                   ) : next.href ? (
-                    <Button size="sm" variant="outline" className="h-8 text-xs" asChild>
-                      <Link href={next.href}>
-                        <Truck className="mr-1 h-3 w-3" />
-                        {next.label}
-                      </Link>
-                    </Button>
+                    <Link
+                      href={next.href}
+                      className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent"
+                    >
+                      <Truck className="mr-1 h-3 w-3" />
+                      {next.label}
+                    </Link>
                   ) : null}
                 </div>
               )}
-              {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </button>
+            </div>
 
             {open && (
               <div className="space-y-4 border-t bg-muted/10 px-4 py-4 text-sm">
@@ -228,6 +252,15 @@ export function YokomochiOrderAccordion({
                     </div>
                   )}
                 </div>
+
+                {neg && (
+                  <BusinessDeliveryCalendar
+                    requestedDate={fr.requestedDate}
+                    requestedBoxes={neg.requestedBoxes}
+                    negotiation={neg}
+                    schedules={order.deliverySchedules}
+                  />
+                )}
 
                 {order.negotiationHistory?.length > 0 && (
                   <div>
@@ -273,16 +306,20 @@ export function YokomochiOrderAccordion({
                       <p className="mb-3 text-xs text-muted-foreground">
                         {trips.length} 便を小野・浅川のタイムラインに割り当ててください。
                       </p>
-                      <Button asChild>
-                        <Link href="/warehouse/internal-fleet">
-                          内部フリートへ
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
+                      <Link
+                        href="/warehouse/internal-fleet"
+                        className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                      >
+                        内部フリートへ
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
                     </div>
                   )}
 
-                {mode === 'warehouse' && res?.negotiationStatus === 'PARTIAL' && order.status === 'NEGOTIATING' && (
+                {mode === 'warehouse' &&
+                  neg &&
+                  ['FULL', 'PARTIAL'].includes(neg.status) &&
+                  order.status === 'NEGOTIATING' && (
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -294,7 +331,9 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Approve Partial
+                      Approve {neg.status === 'PARTIAL'
+                        ? `partial (${neg.availableBoxes} + ${neg.remainingBoxes} boxes)`
+                        : `full (${neg.availableBoxes} boxes)`}
                     </Button>
                     <Button
                       size="sm"

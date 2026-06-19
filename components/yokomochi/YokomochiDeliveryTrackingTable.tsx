@@ -5,7 +5,7 @@ import { formatDate, cn } from '@/lib/utils';
 import {
   DRIVER_TASK_STEPS,
   formatDriverTaskStatus,
-  getDriverTaskStepIndex,
+  getDeliveryTrackingStepIndex,
 } from '@/lib/yokomochi/delivery-status';
 import { useTranslation } from '@/lib/i18n/context';
 
@@ -25,6 +25,7 @@ export type YokomochiDeliveryTrackingRow = {
   plateNumber: string | null;
   taskStatus: string;
   tripStatus: string;
+  verificationStatus: string | null;
   arrivedFactoryAt: Date | null;
   loadedAt: Date | null;
   startedAt: Date | null;
@@ -37,9 +38,15 @@ function formatTimestamp(value: Date | null | undefined) {
   return value ? formatDate(value) : '—';
 }
 
-function DeliveryStepProgress({ status }: { status: string }) {
+function DeliveryStepProgress({
+  status,
+  verificationStatus,
+}: {
+  status: string;
+  verificationStatus?: string | null;
+}) {
   const { t } = useTranslation();
-  const currentIndex = getDriverTaskStepIndex(status);
+  const currentIndex = getDeliveryTrackingStepIndex(status, verificationStatus);
   const labels = [
     t('delivery.stepAssigned'),
     t('delivery.stepArrivedFactory'),
@@ -54,13 +61,18 @@ function DeliveryStepProgress({ status }: { status: string }) {
       {DRIVER_TASK_STEPS.map((step, index) => {
         const done = index <= currentIndex && status !== 'CANCELLED';
         const active = index === currentIndex;
+        const awaitingWarehouse =
+          status === 'ARRIVED_WAREHOUSE' &&
+          verificationStatus !== 'APPROVED' &&
+          index === DRIVER_TASK_STEPS.indexOf('ARRIVED_WAREHOUSE');
         return (
           <div key={step} className="flex flex-1 flex-col items-center gap-1">
             <div
               className={cn(
                 'h-2 w-full rounded-full',
                 done ? 'bg-primary' : 'bg-muted',
-                active && 'ring-2 ring-primary/40'
+                active && 'ring-2 ring-primary/40',
+                awaitingWarehouse && 'bg-amber-400'
               )}
               title={labels[index]}
             />
@@ -158,10 +170,17 @@ export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDelive
                 <td className="border-r border-border/30 px-3 py-2">
                   <Badge variant="outline" className="text-[10px]">
                     {formatDriverTaskStatus(row.taskStatus)}
+                    {row.taskStatus === 'ARRIVED_WAREHOUSE' &&
+                      row.verificationStatus !== 'APPROVED' &&
+                      ' · Awaiting scan'}
+                    {row.verificationStatus === 'APPROVED' && ' · Verified'}
                   </Badge>
                 </td>
                 <td className="border-r border-border/30 px-3 py-2">
-                  <DeliveryStepProgress status={row.taskStatus} />
+                  <DeliveryStepProgress
+                    status={row.taskStatus}
+                    verificationStatus={row.verificationStatus}
+                  />
                 </td>
                 <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
                   {formatTimestamp(row.arrivedFactoryAt)}

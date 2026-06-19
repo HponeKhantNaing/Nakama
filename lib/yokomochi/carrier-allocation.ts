@@ -5,13 +5,34 @@ type TripLike = {
   subcontractAssignment?: unknown | null;
 };
 
+const NON_CARRIER_STATUSES = new Set([
+  'INTERNAL_ASSIGNED',
+  'CARRIER_ASSIGNED',
+  'SUBCONTRACT_ASSIGNED',
+  'DRIVER_ASSIGNED',
+  'IN_PROGRESS',
+  'ARRIVED_WAREHOUSE',
+  'VERIFIED',
+  'COMPLETED',
+  'CANCELLED',
+]);
+
+/** Trips still available for external carrier (excludes internal fleet & already-assigned). */
 export function getCarrierEligibleTrips<T extends TripLike>(trips: T[]): T[] {
   return trips.filter(
     (t) =>
-      t.status === 'PLANNED' &&
+      !NON_CARRIER_STATUSES.has(t.status) &&
       !t.internalFleetAssignment &&
       !t.subcontractAssignment
   );
+}
+
+export function countInternalFleetTrips<T extends TripLike>(trips: T[]): number {
+  return trips.filter((t) => !!t.internalFleetAssignment || t.status === 'INTERNAL_ASSIGNED').length;
+}
+
+export function countRemainingCarrierTrips<T extends TripLike>(trips: T[]): number {
+  return getCarrierEligibleTrips(trips).length;
 }
 
 /** Split trip ids across subcontractors as evenly as possible (first subs get +1). */

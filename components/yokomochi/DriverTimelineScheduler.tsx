@@ -1,9 +1,17 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { assignInternalFleetTrip } from '@/app/actions/yokomochi';
+import {
+  describeHourBlockReason,
+  getAvailableStartHoursForAssignment,
+  getAvailableTrucksAtHour,
+  getDriversWithAvailability,
+  SHIFT_DURATION_HOURS,
+  type ScheduleEntry,
+} from '@/lib/yokomochi/schedule-conflicts';
 import { cn } from '@/lib/utils';
 
 const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16];
@@ -13,10 +21,12 @@ type Truck = { id: string; truckNo: string | null; truckNumber: string };
 type Schedule = {
   id: string;
   driverId: string;
+  truckId: string;
   startTime: string;
   endTime: string;
   label: string | null;
   isLunch: boolean;
+  driverTaskStatus?: string | null;
   trip: { tripCode: string; pallets: number; yokomochiOrder?: { orderNo: string } | null };
 };
 type Trip = { id: string; tripNo: number; tripCode: string; pallets: number; status: string };
@@ -27,12 +37,14 @@ export function DriverTimelineScheduler({
   trucks,
   schedules,
   unassignedTrips,
+  onAssigned,
 }: {
   date: string;
   drivers: Driver[];
   trucks: Truck[];
   schedules: Schedule[];
   unassignedTrips: Trip[];
+  onAssigned?: () => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -40,6 +52,83 @@ export function DriverTimelineScheduler({
   const [selectedDriver, setSelectedDriver] = useState('');
   const [selectedTruck, setSelectedTruck] = useState('');
   const [startHour, setStartHour] = useState(8);
+  const [error, setError] = useState('');
+
+  const scheduleEntries: ScheduleEntry[] = useMemo(
+    () =>
+      schedules.map((s) => ({
+        driverId: s.driverId,
+        truckId: s.truckId,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        driverTaskStatus: s.driverTaskStatus ?? null,
+      })),
+    [schedules]
+  );
+
+  const driversWithSlots = useMemo(
+    () => getDriversWithAvailability(drivers, trucks, scheduleEntries, HOURS),
+    [drivers, trucks, scheduleEntries]
+  );
+
+  const availableStartHours = useMemo(
+    () =>
+      getAvailableStartHoursForAssignment(
+        selectedDriver || null,
+        selectedTruck || null,
+        trucks,
+        scheduleEntries,
+        HOURS
+      ),
+    [selectedDriver, selectedTruck, trucks, scheduleEntries]
+  );
+
+  const availableTrucks = useMemo(() => {
+    if (!selectedDriver) return trucks;
+    return getAvailableTrucksAtHour(trucks, selectedDriver, startHour, scheduleEntries);
+  }, [trucks, selectedDriver, startHour, scheduleEntries]);
+
+  const blockHint = useMemo(() => {
+    if (!selectedDriver) return null;
+    if (availableStartHours.includes(startHour)) return null;
+    return describeHourBlockReason(
+      selectedDriver,
+      selectedTruck || null,
+      startHour,
+      scheduleEntries,
+      drivers,
+      trucks
+    );
+  }, [selectedDriver, selectedTruck, startHour, scheduleEntries, drivers, trucks, availableStartHours]);
+
+  useEffect(() => {
+    if (availableStartHours.length > 0 && !availableStartHours.includes(startHour)) {
+      setStartHour(availableStartHours[0]);
+    }
+  }, [availableStartHours, startHour]);
+
+  useEffect(() => {
+    if (!selectedDriver) return;
+    const hours = getAvailableStartHoursForAssignment(
+      selectedDriver,
+      null,
+      trucks,
+      scheduleEntries,
+      HOURS
+    );
+    if (hours.length > 0 && !hours.includes(startHour)) {
+      setStartHour(hours[0]);
+    }
+  }, [selectedDriver, trucks, scheduleEntries, startHour]);
+
+  useEffect(() => {
+    if (!selectedDriver) return;
+    const trucksAtHour = getAvailableTrucksAtHour(trucks, selectedDriver, startHour, scheduleEntries);
+    if (trucksAtHour.length === 0) return;
+    if (!selectedTruck || !trucksAtHour.some((t) => t.id === selectedTruck)) {
+      setSelectedTruck(trucksAtHour[0].id);
+    }
+  }, [selectedDriver, selectedTruck, startHour, trucks, scheduleEntries]);
 
   function hourLeft(h: number) {
     const idx = HOURS.indexOf(h);
@@ -48,11 +137,12 @@ export function DriverTimelineScheduler({
 
   function assign() {
     if (!selectedTrip || !selectedDriver || !selectedTruck) return;
+    setError('');
     const start = new Date(`${date}T${String(startHour).padStart(2, '0')}:00:00`);
     const end = new Date(start);
-    end.setHours(end.getHours() + 2);
+    end.setHours(end.getHours() + SHIFT_DURATION_HOURS);
     startTransition(async () => {
-      await assignInternalFleetTrip({
+      const result = await assignInternalFleetTrip({
         tripId: selectedTrip,
         driverId: selectedDriver,
         truckId: selectedTruck,
@@ -60,6 +150,11 @@ export function DriverTimelineScheduler({
         endTime: end.toISOString(),
         label: `Trip`,
       });
+      if (result && 'success' in result && !result.success) {
+        setError(result.error ?? 'Failed to assign');
+        return;
+      }
+      onAssigned?.();
       router.refresh();
     });
   }
@@ -94,7 +189,6 @@ export function DriverTimelineScheduler({
               >
                 <div className="flex min-h-[48px] flex-col justify-center p-2">
                   <span className="text-sm font-medium">{driver.name}</span>
-                  {/* Show the assigned order code beside each driver row for faster timeline scanning. */}
                   {assignedOrderCodes.length > 0 && (
                     <span className="truncate font-mono text-[10px] text-muted-foreground">
                       {assignedOrderCodes.join(', ')}
@@ -134,8 +228,16 @@ export function DriverTimelineScheduler({
       {unassignedTrips.length > 0 && (
         <div className="rounded-xl border bg-white p-4">
           <p className="mb-3 text-sm font-semibold">Assign Trip to Timeline</p>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Pick driver first — an available truck is suggested automatically. Each trip uses one truck for{' '}
+            {SHIFT_DURATION_HOURS} hours.
+          </p>
           <div className="grid gap-3 md:grid-cols-4">
-            <select className="rounded-lg border px-3 py-2 text-sm" value={selectedTrip} onChange={(e) => setSelectedTrip(e.target.value)}>
+            <select
+              className="rounded-lg border px-3 py-2 text-sm"
+              value={selectedTrip}
+              onChange={(e) => setSelectedTrip(e.target.value)}
+            >
               <option value="">Trip</option>
               {unassignedTrips.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -143,31 +245,66 @@ export function DriverTimelineScheduler({
                 </option>
               ))}
             </select>
-            <select className="rounded-lg border px-3 py-2 text-sm" value={selectedDriver} onChange={(e) => setSelectedDriver(e.target.value)}>
+            <select
+              className="rounded-lg border px-3 py-2 text-sm"
+              value={selectedDriver}
+              onChange={(e) => {
+                setSelectedDriver(e.target.value);
+                setSelectedTruck('');
+              }}
+            >
               <option value="">Driver</option>
-              {drivers.map((d) => (
+              {driversWithSlots.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>
               ))}
             </select>
-            <select className="rounded-lg border px-3 py-2 text-sm" value={selectedTruck} onChange={(e) => setSelectedTruck(e.target.value)}>
+            <select
+              className="rounded-lg border px-3 py-2 text-sm"
+              value={selectedTruck}
+              disabled={!selectedDriver}
+              onChange={(e) => setSelectedTruck(e.target.value)}
+            >
               <option value="">Truck</option>
-              {trucks.map((t) => (
+              {availableTrucks.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.truckNo ?? t.truckNumber}
                 </option>
               ))}
             </select>
-            <select className="rounded-lg border px-3 py-2 text-sm" value={startHour} onChange={(e) => setStartHour(Number(e.target.value))}>
-              {HOURS.map((h) => (
-                <option key={h} value={h}>
-                  Start {h}:00
-                </option>
-              ))}
+            <select
+              className="rounded-lg border px-3 py-2 text-sm"
+              value={startHour}
+              disabled={!selectedDriver}
+              onChange={(e) => setStartHour(Number(e.target.value))}
+            >
+              {availableStartHours.length === 0 ? (
+                <option value="">No free slots</option>
+              ) : (
+                availableStartHours.map((h) => (
+                  <option key={h} value={h}>
+                    Start {h}:00
+                  </option>
+                ))
+              )}
             </select>
           </div>
-          <Button className="mt-3 rounded-xl" disabled={isPending} onClick={assign}>
+          {blockHint && (
+            <p className="mt-2 text-xs text-amber-700">{blockHint}</p>
+          )}
+          {selectedDriver && availableTrucks.length > 1 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {availableTrucks.length} trucks free at {startHour}:00 for{' '}
+              {drivers.find((d) => d.id === selectedDriver)?.name}
+            </p>
+          )}
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          <Button
+            className="mt-3 rounded-xl"
+            disabled={isPending || !selectedTrip || !selectedDriver || !selectedTruck || availableStartHours.length === 0}
+            onClick={assign}
+          >
             Assign to Schedule
           </Button>
         </div>

@@ -87,5 +87,6 @@ export const config = {
     '/api/trucks/:path*',
     '/api/delivery/:path*',
     '/api/analytics/:path*',
+    '/api/negotiation/:path*',
   ],
 };

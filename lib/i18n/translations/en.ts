@@ -243,6 +243,13 @@ const en = {
   'delivery.stepInTransit': 'Transit',
   'delivery.stepArrivedWarehouse': 'At Warehouse',
   'delivery.stepCompleted': 'Done',
+  'delivery.scanArrivalTitle': 'Warehouse Arrival Verification',
+  'delivery.scanArrivalDesc': 'Scan or enter the trip barcode when cargo arrives. Driver shows this code on their dashboard.',
+  'delivery.scanHint': 'Scan the driver QR or type the trip code — arrival is approved automatically on scan.',
+  'delivery.lookup': 'Lookup',
+  'delivery.approveArrival': 'Approve Arrival',
+  'delivery.rejectArrival': 'Reject',
+  'delivery.alreadyApproved': 'This trip is already verified.',
 
   'analytics.completedOrders': 'Completed Orders',
   'analytics.totalCost': 'Total Transport Cost',

@@ -217,8 +217,14 @@ async function main() {
   });
 
   // Internal fleet — 10t trucks at 20号物流センター (16 pallets/trip)
-  for (const [i, label] of [['A', '小野'], ['B', '浅川']] as const) {
-    const truckNum = `WH-10T-${i}`;
+  const internalFleetDrivers = [
+    { id: 'maruichi-driver-A', truckKey: 'A', name: '小野', email: 'ono@maruichi.jp' },
+    { id: 'maruichi-driver-B', truckKey: 'B', name: '浅川', email: 'asakawa@maruichi.jp' },
+  ] as const;
+
+  for (let i = 0; i < internalFleetDrivers.length; i++) {
+    const d = internalFleetDrivers[i];
+    const truckNum = `WH-10T-${d.truckKey}`;
     await prisma.truck.upsert({
       where: { truckNumber: truckNum },
       update: { maxPallet: 16, maxBoxes: 96, companyId: maruichi.id },
@@ -226,7 +232,7 @@ async function main() {
         truckNumber: truckNum,
         truckNo: truckNum,
         truckType: TruckType.TEN_TON,
-        plateNumber: `名古屋500あ${i}`,
+        plateNumber: `名古屋500あ${d.truckKey}`,
         capacityWeightKg: 10000,
         capacityVolumeM3: 40,
         maxBoxes: 96,
@@ -235,77 +241,103 @@ async function main() {
         companyId: maruichi.id,
       },
     });
-    await prisma.driver.upsert({
-      where: { id: `maruichi-driver-${i}` },
-      update: { name: label, companyId: maruichi.id },
+
+    const user = await prisma.user.upsert({
+      where: { email: d.email },
+      update: {
+        name: d.name,
+        passwordHash,
+        role: UserRole.DRIVER,
+        companyId: maruichi.id,
+      },
       create: {
-        id: `maruichi-driver-${i}`,
-        name: label,
-        phone: `+81-90-3000-000${i}`,
-        licenseNo: `DL-MR-${i}`,
+        email: d.email,
+        passwordHash,
+        name: d.name,
+        role: UserRole.DRIVER,
+        companyId: maruichi.id,
+      },
+    });
+
+    await prisma.driver.upsert({
+      where: { id: d.id },
+      update: {
+        name: d.name,
+        userId: user.id,
+        companyId: maruichi.id,
+        isAvailable: true,
+        status: DriverStatus.AVAILABLE,
+      },
+      create: {
+        id: d.id,
+        name: d.name,
+        phone: `+81-90-3000-000${i + 1}`,
+        licenseNo: `DL-MR-${d.truckKey}`,
         licenseType: LicenseType.LARGE,
         companyId: maruichi.id,
+        userId: user.id,
         status: DriverStatus.AVAILABLE,
         isAvailable: true,
       },
     });
   }
 
-  const driverUser = await prisma.user.upsert({
-    where: { email: 'driver@shinwa.jp' },
-    update: {},
-    create: {
-      email: 'driver@shinwa.jp',
-      passwordHash,
-      name: 'Taro Yamada',
-      role: UserRole.DRIVER,
-      companyId: shinwa.id,
-    },
-  });
+  // Shinwa carrier drivers (login enabled)
+  const shinwaDrivers = [
+    { id: 'shinwa-driver-01', name: 'Htet Paing', email: 'htetpaing@shinwa.jp' },
+    { id: 'shinwa-driver-02', name: 'Hpone', email: 'hpone@shinwa.jp' },
+    { id: 'shinwa-driver-03', name: 'Linn Khant', email: 'linnkhant@shinwa.jp' },
+    { id: 'shinwa-driver-04', name: 'TuTu', email: 'tutu@shinwa.jp' },
+  ] as const;
 
-  const driver2User = await prisma.user.upsert({
-    where: { email: 'driver2@shinwa.jp' },
-    update: {},
-    create: {
-      email: 'driver2@shinwa.jp',
-      passwordHash,
-      name: 'Ken Suzuki',
-      role: UserRole.DRIVER,
-      companyId: shinwa.id,
-    },
-  });
+  for (let i = 0; i < shinwaDrivers.length; i++) {
+    const d = shinwaDrivers[i];
+    const user = await prisma.user.upsert({
+      where: { email: d.email },
+      update: {
+        name: d.name,
+        passwordHash,
+        role: UserRole.DRIVER,
+        companyId: shinwa.id,
+      },
+      create: {
+        email: d.email,
+        passwordHash,
+        name: d.name,
+        role: UserRole.DRIVER,
+        companyId: shinwa.id,
+      },
+    });
 
-  await prisma.driver.upsert({
-    where: { userId: driverUser.id },
-    update: {
-      status: DriverStatus.AVAILABLE,
-      licenseType: LicenseType.LARGE,
-      currentLat: 35.5,
-      currentLng: 137.0,
-    },
-    create: {
-      name: 'Taro Yamada',
-      phone: '+81-90-1234-5678',
-      licenseNo: 'DL-123456',
-      licenseType: LicenseType.LARGE,
-      companyId: shinwa.id,
-      userId: driverUser.id,
-      status: DriverStatus.AVAILABLE,
-      currentLat: 35.5,
-      currentLng: 137.0,
-    },
-  });
+    await prisma.driver.upsert({
+      where: { id: d.id },
+      update: {
+        name: d.name,
+        userId: user.id,
+        companyId: shinwa.id,
+        isAvailable: true,
+        status: DriverStatus.AVAILABLE,
+      },
+      create: {
+        id: d.id,
+        name: d.name,
+        phone: `+81-90-1111-000${i + 1}`,
+        licenseNo: `DL-SW-0${i + 1}`,
+        licenseType: LicenseType.LARGE,
+        companyId: shinwa.id,
+        userId: user.id,
+        status: DriverStatus.AVAILABLE,
+        isAvailable: true,
+      },
+    });
+  }
 
-  // Extra demo drivers for multi-truck allocation.
-  const demoDrivers = [
-    { id: 'shinwa-driver-02', name: 'Ken Suzuki', phone: '+81-90-1111-0002', companyId: shinwa.id, userId: driver2User.id },
-    { id: 'shinwa-driver-03', name: 'Yuki Sato', phone: '+81-90-1111-0003', companyId: shinwa.id, userId: null as string | null },
-    { id: 'shinwa-driver-04', name: 'Hiro Tanaka', phone: '+81-90-1111-0004', companyId: shinwa.id, userId: null as string | null },
+  const subDrivers = [
     { id: 'sub-driver-01', name: 'Sub Driver A', phone: '+81-90-2222-0001', companyId: subcontractor.id, userId: null as string | null },
     { id: 'sub-driver-02', name: 'Sub Driver B', phone: '+81-90-2222-0002', companyId: subcontractor.id, userId: null as string | null },
   ];
 
-  for (const d of demoDrivers) {
+  for (const d of subDrivers) {
     await prisma.driver.upsert({
       where: { id: d.id },
       update: {
@@ -334,9 +366,14 @@ async function main() {
   console.log('  Warehouse: staff@maruichi.jp');
   console.log('  Factory: staff@keycoffee.jp');
   console.log('  Carrier: staff@shinwa.jp');
-  console.log('  Driver 1: driver@shinwa.jp (Taro Yamada)');
-  console.log('  Driver 2: driver2@shinwa.jp (Ken Suzuki)');
-  console.log('  Internal drivers: 小野, 浅川 (maruichi fleet)');
+  console.log('  Drivers (Shinwa):');
+  for (const d of shinwaDrivers) {
+    console.log(`    ${d.email} (${d.name})`);
+  }
+  console.log('  Drivers (Internal fleet / Maruichi):');
+  for (const d of internalFleetDrivers) {
+    console.log(`    ${d.email} (${d.name}) — truck WH-10T-${d.truckKey}`);
+  }
 }
 
 main()

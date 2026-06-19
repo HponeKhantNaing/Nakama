@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
 import { factoryNavItems } from '@/lib/nav/yokomochi';
 import { YokomochiOrderAccordion } from '@/components/yokomochi/YokomochiOrderAccordion';
@@ -10,59 +9,34 @@ import {
   type YokomochiDeliveryTrackingRow,
 } from '@/components/yokomochi/YokomochiDeliveryTrackingTable';
 import { useTranslation } from '@/lib/i18n/context';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { submitFactoryResponse } from '@/app/actions/yokomochi';
+import { FactoryAvailabilityForm } from '@/components/yokomochi/FactoryAvailabilityForm';
+import { NegotiationChatPanel } from '@/components/yokomochi/NegotiationChatPanel';
+import { BusinessDeliveryCalendar } from '@/components/yokomochi/BusinessDeliveryCalendar';
 
-const BOXES_PER_PALLET = 16;
-
-function calculatePalletsFromBoxes(boxes: number) {
-  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
-}
-
-function isPositiveIntegerInput(value: string) {
-  return value === '' || /^[1-9]\d*$/.test(value);
-}
+type ChatMessage = {
+  id: string;
+  message: string;
+  createdAt: Date | string;
+  sender: { role: string; name: string };
+};
 
 export function FactoryRequestsClient({
   orders,
   deliveries,
+  chatMessagesByOrder = {},
 }: {
   orders: any[];
   deliveries: YokomochiDeliveryTrackingRow[];
+  chatMessagesByOrder?: Record<string, ChatMessage[]>;
 }) {
-  const router = useRouter();
   const { t } = useTranslation();
-  const [selected, setSelected] = useState('');
-  const [availableBoxes, setAvailableBoxes] = useState('');
-  const [isPending, startTransition] = useTransition();
 
-  const pending = orders.filter((o) => !o.factoryResponse && o.status !== 'CANCELLED');
-  const selectedOrder = orders.find((o) => o.id === selected);
-  const availableBoxCount = Number(availableBoxes) || 0;
-  const availablePallets = calculatePalletsFromBoxes(availableBoxCount);
+  const awaitingFactoryResponse = orders.filter((o) => o.status === 'FACTORY_PENDING');
+  const awaitingWarehouseApproval = orders.filter(
+    (o) => o.status === 'NEGOTIATING' && o.factoryNegotiation
+  );
 
-  function respond(status: 'FULL' | 'PARTIAL' | 'REJECTED') {
-    if (!selectedOrder) return;
-    const fd = document.getElementById('factory-response-form') as HTMLFormElement;
-    if (!fd.reportValidity()) return;
-    const form = new FormData(fd);
-    const submittedBoxes = Number(form.get('availableBoxes') ?? selectedOrder.factoryRequest.requestedBoxes);
-    startTransition(async () => {
-      await submitFactoryResponse({
-        yokomochiOrderId: selected,
-        // Quantity remains for the existing schema, but boxes are the factory response source of truth.
-        availableQuantity: submittedBoxes,
-        availablePallets: calculatePalletsFromBoxes(submittedBoxes),
-        availableBoxes: submittedBoxes,
-        availableDate: String(form.get('availableDate')),
-        negotiationStatus: status,
-        notes: String(form.get('notes') ?? ''),
-      });
-      router.refresh();
-    });
-  }
+  const [chatOrderId, setChatOrderId] = useState(awaitingWarehouseApproval[0]?.id ?? '');
 
   return (
     <DashboardShell titleKey="dashboard.factory" navItems={factoryNavItems}>
@@ -77,74 +51,47 @@ export function FactoryRequestsClient({
           <YokomochiDeliveryTrackingTable rows={deliveries} />
         </section>
 
-        {pending.length > 0 && (
-          <div className="rounded-xl border bg-white p-4">
-            <p className="mb-3 text-sm font-semibold">Respond to Warehouse Request</p>
+        <FactoryAvailabilityForm
+          orders={awaitingFactoryResponse}
+          chatMessagesByOrder={chatMessagesByOrder}
+        />
+
+        {awaitingWarehouseApproval.length > 0 && (
+          <section className="space-y-3 rounded-xl border bg-white p-4">
+            <p className="text-sm font-semibold">Active negotiations (awaiting warehouse approval)</p>
             <select
-              className="mb-3 w-full rounded-lg border px-3 py-2 text-sm"
-              value={selected}
-              onChange={(e) => {
-                const order = orders.find((o) => o.id === e.target.value);
-                setSelected(e.target.value);
-                setAvailableBoxes(order ? String(order.factoryRequest.requestedBoxes) : '');
-              }}
+              className="w-full rounded-lg border px-3 py-2 text-sm md:max-w-md"
+              value={chatOrderId}
+              onChange={(e) => setChatOrderId(e.target.value)}
             >
-              <option value="">Select request</option>
-              {pending.map((o) => (
+              {awaitingWarehouseApproval.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.orderNo} — {o.factoryRequest.requestedPallets} pallets requested
+                  {o.orderNo} — {o.factoryNegotiation?.status}
                 </option>
               ))}
             </select>
-            {selectedOrder && (
-              <form key={selected} id="factory-response-form" className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <Label>Available Pallets</Label>
-                  {/* Pallets follow available boxes so typing and number-stepper changes stay synced. */}
-                  <Input
-                    name="availablePallets"
-                    type="number"
-                    readOnly
-                    value={availablePallets}
+            {(() => {
+              const order = awaitingWarehouseApproval.find((o) => o.id === chatOrderId) ?? awaitingWarehouseApproval[0];
+              const neg = order?.factoryNegotiation;
+              if (!order || !neg) return null;
+              return (
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <BusinessDeliveryCalendar
+                    requestedDate={order.factoryRequest.requestedDate}
+                    requestedBoxes={neg.requestedBoxes}
+                    negotiation={neg}
+                    schedules={order.deliverySchedules}
+                  />
+                  <NegotiationChatPanel
+                    orderId={order.id}
+                    orderNo={order.orderNo}
+                    initialMessages={(chatMessagesByOrder[order.id] ?? []) as any}
+                    viewerRole="FACTORY_STAFF"
                   />
                 </div>
-                <div>
-                  <Label>Available Boxes</Label>
-                  <Input
-                    name="availableBoxes"
-                    type="number"
-                    min={1}
-                    required
-                    value={availableBoxes}
-                    onChange={(event) => {
-                      if (isPositiveIntegerInput(event.target.value)) {
-                        setAvailableBoxes(event.target.value);
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label>Available Date</Label>
-                  <Input name="availableDate" type="date" required />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Notes</Label>
-                  <Input name="notes" placeholder="e.g. Only 70 pallets available" />
-                </div>
-                <div className="flex flex-wrap gap-2 md:col-span-2">
-                  <Button type="button" disabled={isPending} onClick={() => respond('FULL')}>
-                    FULL
-                  </Button>
-                  <Button type="button" variant="secondary" disabled={isPending} onClick={() => respond('PARTIAL')}>
-                    PARTIAL
-                  </Button>
-                  <Button type="button" variant="destructive" disabled={isPending} onClick={() => respond('REJECTED')}>
-                    REJECTED
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
+              );
+            })()}
+          </section>
         )}
 
         <YokomochiOrderAccordion orders={orders} mode="factory" />

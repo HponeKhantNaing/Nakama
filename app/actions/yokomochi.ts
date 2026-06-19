@@ -20,18 +20,24 @@ import {
 } from '@/lib/yokomochi/trip-calculation';
 import {
   getCarrierEligibleTrips,
+  countRemainingCarrierTrips,
   splitAmongSubcontractors,
 } from '@/lib/yokomochi/carrier-allocation';
 import { getYokomochiVehicleLabel } from '@/lib/yokomochi/vehicle-capacity';
+import { findScheduleConflict } from '@/lib/yokomochi/schedule-conflicts';
+import { releaseYokomochiFleetResources } from '@/lib/yokomochi/fleet-release';
+import {
+  buildDeliverySchedulesFromNegotiation,
+  calculatePalletsFromBoxes,
+  createDeliverySchedulesWithTrips,
+} from '@/lib/yokomochi/delivery-schedule';
+import { factoryMaySubmitResponse } from '@/app/actions/negotiation-chat';
+import { localDayBounds, toLocalDateString } from '@/lib/yokomochi/dates';
+import { normalizeTripScanInput, isTripLegCode } from '@/lib/yokomochi/trip-scan';
 import { ActionResult } from '@/types';
 import type { Prisma } from '@prisma/client';
 
 type Tx = Prisma.TransactionClient;
-const BOXES_PER_PALLET = 16;
-
-function calculatePalletsFromBoxes(boxes: number) {
-  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
-}
 
 async function createTripsFromFactoryResponse(
   tx: Tx,
@@ -71,6 +77,34 @@ async function createTripsFromFactoryResponse(
   return calc;
 }
 
+/** Keep carrier request trip count in sync after internal fleet assignments. */
+export async function syncCarrierRequestRemainingTrips(yokomochiOrderId: string) {
+  const order = await prisma.yokomochiOrder.findUnique({
+    where: { id: yokomochiOrderId },
+    include: {
+      trips: { include: { internalFleetAssignment: true, subcontractAssignment: true } },
+      carrierRequests: { where: { status: CarrierRequestStatus.PENDING } },
+    },
+  });
+
+  if (!order) return 0;
+
+  for (const req of order.carrierRequests) {
+    const scheduleTrips = req.deliveryScheduleId
+      ? order.trips.filter((t) => t.deliveryScheduleId === req.deliveryScheduleId)
+      : order.trips;
+    const remaining = countRemainingCarrierTrips(scheduleTrips);
+    if (remaining !== req.requestedTrips) {
+      await prisma.carrierRequest.update({
+        where: { id: req.id },
+        data: { requestedTrips: remaining },
+      });
+    }
+  }
+
+  return countRemainingCarrierTrips(order.trips);
+}
+
 const factoryRequestSchema = z.object({
   factoryCompanyId: z.string(),
   requestedPallets: z.coerce.number().int().positive().optional(),
@@ -92,6 +126,7 @@ export async function createFactoryRequest(
     const data = parsed.data;
     const orderNo = generateOrderNo();
     const createdById = await resolveSessionUserId(session);
+    if (!createdById) return { success: false, error: 'User not found' };
     const requestedPallets = calculatePalletsFromBoxes(data.requestedBoxes);
 
     const order = await prisma.$transaction(async (tx) => {
@@ -120,6 +155,16 @@ export async function createFactoryRequest(
         },
       });
 
+      await tx.negotiationChatMessage.create({
+        data: {
+          yokomochiOrderId: yokomochiOrder.id,
+          senderUserId: createdById,
+          senderRole: UserRole.MARUICHI_STAFF,
+          senderCompanyId: session.user.companyId,
+          message: `Request: ${data.requestedBoxes} boxes needed by ${data.requestedDate}. Please confirm availability via chat before your formal response.`,
+        },
+      });
+
       return yokomochiOrder;
     });
 
@@ -138,6 +183,7 @@ const factoryResponseSchema = z.object({
   availablePallets: z.coerce.number().int().positive(),
   availableBoxes: z.coerce.number().int().positive(),
   availableDate: z.string(),
+  nextAvailableDate: z.string().optional(),
   negotiationStatus: z.enum(['FULL', 'PARTIAL', 'REJECTED']),
   notes: z.string().optional(),
 });
@@ -151,6 +197,33 @@ export async function submitFactoryResponse(
     if (!parsed.success) return { success: false, error: 'Invalid response data' };
 
     const data = parsed.data;
+
+    const factoryRequest = await prisma.factoryRequest.findUnique({
+      where: { yokomochiOrderId: data.yokomochiOrderId },
+    });
+    if (!factoryRequest) return { success: false, error: 'Factory request not found' };
+
+    const chatGate = await factoryMaySubmitResponse(data.yokomochiOrderId);
+    if (!chatGate.ok) {
+      return { success: false, error: chatGate.error ?? 'Negotiation chat required before response' };
+    }
+
+    const requestedBoxes = factoryRequest.requestedBoxes;
+    const remainingBoxes = Math.max(0, requestedBoxes - data.availableBoxes);
+
+    if (data.negotiationStatus === 'PARTIAL') {
+      if (remainingBoxes <= 0) {
+        return { success: false, error: 'Partial response requires fewer boxes than requested' };
+      }
+      if (!data.nextAvailableDate) {
+        return { success: false, error: 'Next available date required for partial delivery' };
+      }
+    }
+
+    const nextDate =
+      data.nextAvailableDate && data.negotiationStatus === 'PARTIAL'
+        ? new Date(data.nextAvailableDate)
+        : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.factoryResponse.upsert({
@@ -175,24 +248,42 @@ export async function submitFactoryResponse(
         },
       });
 
+      await tx.factoryNegotiation.upsert({
+        where: { yokomochiOrderId: data.yokomochiOrderId },
+        create: {
+          factoryRequestId: factoryRequest.id,
+          yokomochiOrderId: data.yokomochiOrderId,
+          requestedBoxes,
+          availableBoxes: data.availableBoxes,
+          remainingBoxes:
+            data.negotiationStatus === 'FULL' ? 0 : remainingBoxes,
+          availableDate: new Date(data.availableDate),
+          nextAvailableDate: nextDate,
+          status: data.negotiationStatus as FactoryResponseStatus,
+          notes: data.notes,
+        },
+        update: {
+          requestedBoxes,
+          availableBoxes: data.availableBoxes,
+          remainingBoxes:
+            data.negotiationStatus === 'FULL' ? 0 : remainingBoxes,
+          availableDate: new Date(data.availableDate),
+          nextAvailableDate: nextDate,
+          status: data.negotiationStatus as FactoryResponseStatus,
+          notes: data.notes,
+          respondedAt: new Date(),
+        },
+      });
+
       const nextStatus =
-        data.negotiationStatus === 'REJECTED' || data.negotiationStatus === 'PARTIAL'
-          ? YokomochiOrderStatus.NEGOTIATING
-          : YokomochiOrderStatus.APPROVED;
+        data.negotiationStatus === 'REJECTED'
+          ? YokomochiOrderStatus.CANCELLED
+          : YokomochiOrderStatus.NEGOTIATING;
 
       await tx.yokomochiOrder.update({
         where: { id: data.yokomochiOrderId },
         data: { status: nextStatus },
       });
-
-      if (data.negotiationStatus === 'FULL') {
-        await createTripsFromFactoryResponse(
-          tx,
-          data.yokomochiOrderId,
-          data.availablePallets,
-          data.availableBoxes
-        );
-      }
     });
 
     revalidatePath('/warehouse');
@@ -220,8 +311,16 @@ export async function handleNegotiation(
     if (!parsed.success) return { success: false, error: 'Invalid negotiation action' };
 
     const { yokomochiOrderId, action, message, requestedPallets } = parsed.data;
-    const response = await prisma.factoryResponse.findUnique({ where: { yokomochiOrderId } });
-    if (!response) return { success: false, error: 'No factory response yet' };
+
+    const [negotiation, factoryRequest, order] = await Promise.all([
+      prisma.factoryNegotiation.findUnique({ where: { yokomochiOrderId } }),
+      prisma.factoryRequest.findUnique({ where: { yokomochiOrderId } }),
+      prisma.yokomochiOrder.findUnique({ where: { id: yokomochiOrderId } }),
+    ]);
+
+    if (!negotiation || !factoryRequest || !order) {
+      return { success: false, error: 'No factory negotiation yet' };
+    }
 
     const actorUserId = await resolveSessionUserId(session);
 
@@ -234,23 +333,41 @@ export async function handleNegotiation(
           actorRole: UserRole.MARUICHI_STAFF,
           message,
           requestedPallets,
-          offeredPallets: response.availablePallets,
+          offeredPallets: calculatePalletsFromBoxes(negotiation.availableBoxes),
         },
       });
 
       if (action === 'APPROVE') {
-        await createTripsFromFactoryResponse(
-          tx,
+        const schedules = buildDeliverySchedulesFromNegotiation({
+          requestedBoxes: negotiation.requestedBoxes,
+          availableBoxes: negotiation.availableBoxes,
+          remainingBoxes: negotiation.remainingBoxes,
+          availableDate: negotiation.availableDate,
+          nextAvailableDate: negotiation.nextAvailableDate,
+          status: negotiation.status,
+        });
+
+        await createDeliverySchedulesWithTrips(tx, {
+          factoryRequestId: factoryRequest.id,
           yokomochiOrderId,
-          response.availablePallets,
-          response.availableBoxes
-        );
+          orderNo: order.orderNo,
+          schedules,
+        });
+
+        await tx.factoryNegotiation.update({
+          where: { id: negotiation.id },
+          data: { approvedAt: new Date() },
+        });
       } else if (action === 'REJECT') {
         await tx.yokomochiOrder.update({
           where: { id: yokomochiOrderId },
           data: { status: YokomochiOrderStatus.CANCELLED },
         });
       } else {
+        await tx.factoryNegotiation.update({
+          where: { id: negotiation.id },
+          data: { approvedAt: null },
+        });
         await tx.yokomochiOrder.update({
           where: { id: yokomochiOrderId },
           data: { status: YokomochiOrderStatus.FACTORY_PENDING },
@@ -276,23 +393,43 @@ export async function confirmOrderTrips(yokomochiOrderId: string): Promise<Actio
         id: yokomochiOrderId,
         factoryRequest: { warehouseCompanyId: session.user.companyId },
       },
-      include: { factoryResponse: true, trips: true },
+      include: {
+        factoryRequest: true,
+        factoryNegotiation: true,
+        factoryResponse: true,
+        deliverySchedules: true,
+        trips: true,
+      },
     });
 
-    if (!order?.factoryResponse) {
+    if (!order?.factoryNegotiation && !order?.factoryResponse) {
       return { success: false, error: 'Factory must respond before trip calculation' };
     }
-    if (order.trips.length > 0) {
+    if (order.trips.length > 0 || (order.deliverySchedules?.length ?? 0) > 0) {
       return { success: false, error: 'Trips already calculated' };
     }
 
+    const neg = order.factoryNegotiation;
+    if (!neg) {
+      return { success: false, error: 'Approve negotiation in Negotiations tab first' };
+    }
+
     await prisma.$transaction(async (tx) => {
-      await createTripsFromFactoryResponse(
-        tx,
+      const schedules = buildDeliverySchedulesFromNegotiation({
+        requestedBoxes: neg.requestedBoxes,
+        availableBoxes: neg.availableBoxes,
+        remainingBoxes: neg.remainingBoxes,
+        availableDate: neg.availableDate,
+        nextAvailableDate: neg.nextAvailableDate,
+        status: neg.status,
+      });
+
+      await createDeliverySchedulesWithTrips(tx, {
+        factoryRequestId: order.factoryRequest!.id,
         yokomochiOrderId,
-        order.factoryResponse!.availablePallets,
-        order.factoryResponse!.availableBoxes
-      );
+        orderNo: order.orderNo,
+        schedules,
+      });
     });
 
     revalidatePath('/warehouse');
@@ -315,6 +452,8 @@ export async function getWarehouseYokomochiOrders() {
         },
       },
       factoryResponse: true,
+      factoryNegotiation: true,
+      deliverySchedules: { orderBy: { scheduleNo: 'asc' } },
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
       trips: {
         orderBy: { tripNo: 'asc' },
@@ -343,6 +482,8 @@ export async function getFactoryYokomochiOrders() {
     include: {
       factoryRequest: { include: { warehouseCompany: { select: { id: true, name: true } } } },
       factoryResponse: true,
+      factoryNegotiation: true,
+      deliverySchedules: { orderBy: { scheduleNo: 'asc' } },
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
       trips: {
         orderBy: { tripNo: 'asc' },
@@ -406,6 +547,7 @@ export async function getYokomochiDeliveryTracking() {
       trips: { some: { driverTask: { isNot: null } } },
     },
     include: {
+      deliveryVerification: true,
       factoryRequest: {
         include: {
           factoryCompany: { select: { name: true } },
@@ -454,6 +596,7 @@ export async function getYokomochiDeliveryTracking() {
           plateNumber: truck?.plateNumber ?? null,
           taskStatus: task.status,
           tripStatus: trip.status,
+          verificationStatus: order.deliveryVerification?.status ?? null,
           arrivedFactoryAt: task.arrivedFactoryAt,
           loadedAt: task.loadedAt,
           startedAt: task.startedAt,
@@ -475,7 +618,7 @@ export async function updateDriverTaskStatus(
 
   const task = await prisma.driverTask.findFirst({
     where: { id: taskId, driverId: driver.id },
-    include: { trip: true },
+    include: { trip: true, truck: true },
   });
   if (!task) return { success: false, error: 'Task not found' };
 
@@ -527,8 +670,14 @@ export async function updateDriverTaskStatus(
           verifiedPallets: task.pallets,
           verifiedBoxes: task.boxes,
           driverInfo: driver.name,
+          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
         },
-        update: { verifiedPallets: task.pallets, verifiedBoxes: task.boxes },
+        update: {
+          verifiedPallets: task.pallets,
+          verifiedBoxes: task.boxes,
+          driverInfo: driver.name,
+          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
+        },
       });
     }
   });
@@ -547,33 +696,42 @@ export async function verifyWarehouseDelivery(input: {
   const session = await requireRole(['MARUICHI_STAFF']);
 
   await prisma.$transaction(async (tx) => {
-    const task = await tx.driverTask.findFirst({
+    const tasks = await tx.driverTask.findMany({
       where: { trip: { yokomochiOrderId: input.yokomochiOrderId } },
-      include: { driver: true, truck: true },
+      include: { driver: true, truck: true, trip: true },
     });
 
-    await tx.deliveryVerification.update({
+    await tx.deliveryVerification.upsert({
       where: { yokomochiOrderId: input.yokomochiOrderId },
-      data: {
+      create: {
+        yokomochiOrderId: input.yokomochiOrderId,
         status: input.approved ? 'APPROVED' : 'REJECTED',
         notes: input.notes,
         verifiedAt: new Date(),
+        verifiedByUserId: session.user.id,
+      },
+      update: {
+        status: input.approved ? 'APPROVED' : 'REJECTED',
+        notes: input.notes,
+        verifiedAt: new Date(),
+        verifiedByUserId: session.user.id,
       },
     });
 
-    if (input.approved && task) {
+    if (input.approved && tasks.length > 0) {
       const order = await tx.yokomochiOrder.findUnique({ where: { id: input.yokomochiOrderId } });
+      const primary = tasks[0];
       await tx.yokomochiDeliveryForm.upsert({
         where: { yokomochiOrderId: input.yokomochiOrderId },
         create: {
           yokomochiOrderId: input.yokomochiOrderId,
           deliveryNo: `DC-${order?.orderNo ?? 'UNKNOWN'}`,
-          driverName: task.driver.name,
-          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
-          cargoType: task.cargoType,
-          boxes: task.boxes,
-          pallets: task.pallets,
-          arrivalTime: task.arrivedWarehouseAt,
+          driverName: primary.driver.name,
+          truckInfo: primary.truck?.truckNo ?? primary.truck?.plateNumber ?? undefined,
+          cargoType: primary.cargoType,
+          boxes: tasks.reduce((s, t) => s + t.boxes, 0),
+          pallets: tasks.reduce((s, t) => s + t.pallets, 0),
+          arrivalTime: primary.arrivedWarehouseAt,
           approvedBy: session.user.name,
           completedTime: new Date(),
           verificationNote: input.notes,
@@ -590,10 +748,16 @@ export async function verifyWarehouseDelivery(input: {
         data: { status: YokomochiOrderStatus.COMPLETED, completedAt: new Date() },
       });
 
-      await tx.driverTask.update({
-        where: { id: task.id },
-        data: { status: 'COMPLETED', completedAt: new Date() },
-      });
+      for (const task of tasks) {
+        await tx.driverTask.update({
+          where: { id: task.id },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
+        await releaseYokomochiFleetResources(tx, {
+          truckId: task.truckId,
+          driverId: task.driverId,
+        });
+      }
 
       await tx.yokomochiTrip.updateMany({
         where: { yokomochiOrderId: input.yokomochiOrderId },
@@ -608,12 +772,186 @@ export async function verifyWarehouseDelivery(input: {
   return { success: true };
 }
 
+export async function lookupYokomochiArrival(tripCode: string) {
+  const session = await requireRole(['MARUICHI_STAFF']);
+  const code = normalizeTripScanInput(tripCode);
+  if (!code) return null;
+
+  const warehouseCompanyId = session.user.companyId;
+  const include = {
+    yokomochiOrder: {
+      include: {
+        deliveryVerification: true,
+        factoryRequest: { include: { factoryCompany: { select: { name: true } } } },
+      },
+    },
+    driverTask: { include: { driver: true, truck: true } },
+  } as const;
+
+  const baseWhere = {
+    yokomochiOrder: { factoryRequest: { warehouseCompanyId } },
+    driverTask: { isNot: null },
+  };
+
+  let trip = await prisma.yokomochiTrip.findFirst({
+    where: { ...baseWhere, tripCode: { equals: code, mode: 'insensitive' } },
+    include,
+  });
+
+  if (!trip && !isTripLegCode(code)) {
+    const arrivedForOrder = await prisma.yokomochiTrip.findMany({
+      where: {
+        ...baseWhere,
+        yokomochiOrder: {
+          orderNo: { equals: code, mode: 'insensitive' },
+          factoryRequest: { warehouseCompanyId },
+        },
+        status: YokomochiTripStatus.ARRIVED_WAREHOUSE,
+      },
+      include,
+      orderBy: { tripNo: 'asc' },
+    });
+    if (arrivedForOrder.length === 1) {
+      trip = arrivedForOrder[0];
+    }
+  }
+
+  if (!trip?.driverTask) return null;
+
+  return {
+    tripId: trip.id,
+    tripCode: trip.tripCode,
+    tripStatus: trip.status,
+    orderNo: trip.yokomochiOrder.orderNo,
+    orderId: trip.yokomochiOrderId,
+    factoryName: trip.yokomochiOrder.factoryRequest?.factoryCompany.name ?? '—',
+    cargoType: trip.driverTask.cargoType ?? trip.yokomochiOrder.cargoType,
+    boxes: trip.driverTask.boxes,
+    pallets: trip.driverTask.pallets,
+    driverName: trip.driverTask.driver.name,
+    truckLabel:
+      trip.driverTask.truck?.truckNo ??
+      trip.driverTask.truck?.plateNumber ??
+      null,
+    taskStatus: trip.driverTask.status,
+    verificationStatus: trip.yokomochiOrder.deliveryVerification?.status ?? 'PENDING',
+    arrivedWarehouseAt: trip.driverTask.arrivedWarehouseAt,
+  };
+}
+
+export async function verifyYokomochiArrivalByTripCode(
+  tripCode: string,
+  approved: boolean,
+  notes?: string
+): Promise<ActionResult> {
+  try {
+    const session = await requireRole(['MARUICHI_STAFF']);
+    const verifiedByUserId = await resolveSessionUserId(session);
+    const lookup = await lookupYokomochiArrival(tripCode);
+    if (!lookup) {
+      return {
+        success: false,
+        error: 'Trip not found — scan the trip code under the QR (e.g. …-S1-T1), not the order number only',
+      };
+    }
+    if (lookup.taskStatus === 'COMPLETED') {
+      return { success: false, error: 'This trip is already verified' };
+    }
+
+    const readyForScan =
+      lookup.taskStatus === 'ARRIVED_WAREHOUSE' ||
+      lookup.tripStatus === YokomochiTripStatus.ARRIVED_WAREHOUSE;
+
+    if (!readyForScan) {
+      return {
+        success: false,
+        error: `Driver has not arrived at warehouse yet (current: ${lookup.taskStatus.replace(/_/g, ' ')})`,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const task = await tx.driverTask.findFirst({
+        where: { tripId: lookup.tripId },
+        include: { driver: true, truck: true },
+      });
+      if (!task) throw new Error('Driver task not found');
+
+      await tx.driverTask.update({
+        where: { id: task.id },
+        data: { status: approved ? 'COMPLETED' : 'CANCELLED', completedAt: new Date() },
+      });
+
+      await tx.yokomochiTrip.update({
+        where: { id: lookup.tripId },
+        data: { status: approved ? YokomochiTripStatus.COMPLETED : YokomochiTripStatus.CANCELLED },
+      });
+
+      if (approved) {
+        await releaseYokomochiFleetResources(tx, {
+          truckId: task.truckId,
+          driverId: task.driverId,
+        });
+      }
+
+      const remaining = await tx.yokomochiTrip.count({
+        where: {
+          yokomochiOrderId: lookup.orderId,
+          status: { notIn: [YokomochiTripStatus.COMPLETED, YokomochiTripStatus.CANCELLED] },
+        },
+      });
+
+      const verificationStatus = approved
+        ? remaining === 0
+          ? 'APPROVED'
+          : 'PENDING'
+        : 'REJECTED';
+
+      await tx.deliveryVerification.upsert({
+        where: { yokomochiOrderId: lookup.orderId },
+        create: {
+          yokomochiOrderId: lookup.orderId,
+          status: verificationStatus,
+          verifiedBoxes: task.boxes,
+          verifiedPallets: task.pallets,
+          driverInfo: task.driver.name,
+          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
+          notes,
+          verifiedAt: new Date(),
+          verifiedByUserId: verifiedByUserId ?? undefined,
+        },
+        update: {
+          status: verificationStatus,
+          verifiedBoxes: task.boxes,
+          verifiedPallets: task.pallets,
+          driverInfo: task.driver.name,
+          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
+          notes,
+          verifiedAt: new Date(),
+          verifiedByUserId: verifiedByUserId ?? undefined,
+        },
+      });
+
+      if (approved && remaining === 0) {
+        await tx.yokomochiOrder.update({
+          where: { id: lookup.orderId },
+          data: { status: YokomochiOrderStatus.COMPLETED, completedAt: new Date() },
+        });
+      }
+    });
+
+    revalidatePath('/warehouse');
+    revalidatePath('/factory');
+    revalidatePath('/driver');
+    return { success: true };
+  } catch (e) {
+    console.error('verifyYokomochiArrivalByTripCode:', e);
+    return { success: false, error: 'Failed to verify arrival' };
+  }
+}
+
 export async function getDriverSchedule(date: string) {
   const session = await requireRole(['MARUICHI_STAFF']);
-  const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(date);
-  dayEnd.setHours(23, 59, 59, 999);
+  const { dayStart, dayEnd } = localDayBounds(date);
 
   const [drivers, schedules] = await Promise.all([
     prisma.driver.findMany({ where: { companyId: session.user.companyId }, orderBy: { name: 'asc' } }),
@@ -622,12 +960,63 @@ export async function getDriverSchedule(date: string) {
         driver: { companyId: session.user.companyId },
         startTime: { gte: dayStart, lte: dayEnd },
       },
-      include: { driver: true, truck: true, trip: { include: { yokomochiOrder: true } } },
+      include: {
+        driver: true,
+        truck: true,
+        trip: {
+          include: {
+            yokomochiOrder: true,
+            driverTask: { select: { status: true } },
+          },
+        },
+      },
       orderBy: { startTime: 'asc' },
     }),
   ]);
 
-  return { drivers, schedules };
+  return {
+    drivers,
+    schedules: schedules.map((s) => ({
+      ...s,
+      driverTaskStatus: s.trip.driverTask?.status ?? null,
+    })),
+  };
+}
+
+export async function updateDriverScheduleTimes(input: {
+  scheduleId: string;
+  startTime: string;
+  endTime: string;
+}) {
+  try {
+    const session = await requireRole(['MARUICHI_STAFF']);
+    const schedule = await prisma.driverSchedule.findUnique({
+      where: { id: input.scheduleId },
+      include: { driver: true, trip: true },
+    });
+    if (!schedule || schedule.driver.companyId !== session.user.companyId) {
+      return { success: false, error: 'Schedule not found' };
+    }
+
+    const startTime = new Date(input.startTime);
+    const endTime = new Date(input.endTime);
+
+    await prisma.driverSchedule.update({
+      where: { id: input.scheduleId },
+      data: { startTime, endTime },
+    });
+
+    await prisma.driverTask.updateMany({
+      where: { tripId: schedule.tripId },
+      data: { eta: endTime },
+    });
+
+    revalidatePath('/warehouse/internal-fleet');
+    return { success: true };
+  } catch (e) {
+    console.error('updateDriverScheduleTimes:', e);
+    return { success: false, error: 'Failed to update schedule' };
+  }
 }
 
 const scheduleSchema = z.object({
@@ -641,11 +1030,47 @@ const scheduleSchema = z.object({
 
 export async function assignInternalFleetTrip(input: z.infer<typeof scheduleSchema>) {
   try {
-    await requireRole(['MARUICHI_STAFF']);
+    const session = await requireRole(['MARUICHI_STAFF']);
     const parsed = scheduleSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Invalid schedule data' };
 
     const data = parsed.data;
+
+    const tripMeta = await prisma.yokomochiTrip.findUnique({
+      where: { id: data.tripId },
+      select: { yokomochiOrderId: true },
+    });
+    if (!tripMeta) return { success: false, error: 'Trip not found' };
+
+    const startTime = new Date(data.startTime);
+    const endTime = new Date(data.endTime);
+    const { dayStart, dayEnd } = localDayBounds(toLocalDateString(startTime));
+
+    const existingSchedules = await prisma.driverSchedule.findMany({
+      where: {
+        driver: { companyId: session.user.companyId },
+        startTime: { gte: dayStart, lte: dayEnd },
+        NOT: { tripId: data.tripId },
+      },
+      include: { trip: { include: { driverTask: { select: { status: true } } } } },
+    });
+
+    const scheduleEntries = existingSchedules.map((s) => ({
+      driverId: s.driverId,
+      truckId: s.truckId,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      driverTaskStatus: s.trip.driverTask?.status ?? null,
+    }));
+
+    const conflict = findScheduleConflict(
+      data.driverId,
+      data.truckId,
+      startTime,
+      endTime,
+      scheduleEntries
+    );
+    if (conflict) return { success: false, error: conflict };
 
     await prisma.$transaction(async (tx) => {
       await tx.internalFleetAssignment.upsert({
@@ -708,12 +1133,16 @@ export async function assignInternalFleetTrip(input: z.infer<typeof scheduleSche
       });
 
       await tx.yokomochiOrder.update({
-        where: { id: trip!.yokomochiOrderId },
+        where: { id: tripMeta.yokomochiOrderId },
         data: { status: YokomochiOrderStatus.INTERNAL_SCHEDULING },
       });
     });
 
+    await syncCarrierRequestRemainingTrips(tripMeta.yokomochiOrderId);
+
     revalidatePath('/warehouse');
+    revalidatePath('/warehouse/internal-fleet');
+    revalidatePath('/carrier');
     revalidatePath('/driver');
     return { success: true };
   } catch (e) {
@@ -724,6 +1153,7 @@ export async function assignInternalFleetTrip(input: z.infer<typeof scheduleSche
 
 const carrierRequestSchema = z.object({
   yokomochiOrderId: z.string(),
+  deliveryScheduleId: z.string().optional(),
   carrierCompanyId: z.string(),
   notes: z.string().optional(),
 });
@@ -736,14 +1166,15 @@ export async function sendCarrierRequest(
     const parsed = carrierRequestSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Invalid carrier request' };
 
-    const { yokomochiOrderId, carrierCompanyId, notes } = parsed.data;
+    const { yokomochiOrderId, deliveryScheduleId, carrierCompanyId, notes } = parsed.data;
 
     const order = await prisma.yokomochiOrder.findUnique({
       where: { id: yokomochiOrderId },
       include: {
         factoryRequest: true,
+        deliverySchedules: true,
         trips: { include: { internalFleetAssignment: true, subcontractAssignment: true } },
-        carrierRequest: true,
+        carrierRequests: { where: { status: CarrierRequestStatus.PENDING } },
       },
     });
 
@@ -752,29 +1183,55 @@ export async function sendCarrierRequest(
       return { success: false, error: 'Unauthorized' };
     }
 
-    const eligible = getCarrierEligibleTrips(order.trips);
+    const scheduleTrips = deliveryScheduleId
+      ? order.trips.filter((t) => t.deliveryScheduleId === deliveryScheduleId)
+      : order.trips;
+
+    const eligible = getCarrierEligibleTrips(scheduleTrips);
     if (eligible.length === 0) {
-      return { success: false, error: 'No remaining trips for external carrier' };
+      return { success: false, error: 'No remaining trips for external carrier on this date' };
     }
 
+    const schedule = deliveryScheduleId
+      ? order.deliverySchedules.find((s) => s.id === deliveryScheduleId)
+      : null;
+
     await prisma.$transaction(async (tx) => {
-      await tx.carrierRequest.upsert({
-        where: { yokomochiOrderId },
-        create: {
+      const existing = await tx.carrierRequest.findFirst({
+        where: {
           yokomochiOrderId,
-          warehouseCompanyId: session.user.companyId,
-          carrierCompanyId,
-          requestedTrips: eligible.length,
-          notes,
-          status: CarrierRequestStatus.PENDING,
-        },
-        update: {
-          carrierCompanyId,
-          requestedTrips: eligible.length,
-          notes,
+          deliveryScheduleId: deliveryScheduleId ?? null,
           status: CarrierRequestStatus.PENDING,
         },
       });
+
+      const payload = {
+        warehouseCompanyId: session.user.companyId,
+        carrierCompanyId,
+        requestedTrips: eligible.length,
+        deliveryDate: schedule?.deliveryDate ?? eligible[0]?.scheduledDate ?? null,
+        notes,
+        status: CarrierRequestStatus.PENDING,
+      };
+
+      if (existing) {
+        await tx.carrierRequest.update({ where: { id: existing.id }, data: payload });
+      } else {
+        await tx.carrierRequest.create({
+          data: {
+            yokomochiOrderId,
+            deliveryScheduleId: deliveryScheduleId ?? null,
+            ...payload,
+          },
+        });
+      }
+
+      if (schedule) {
+        await tx.deliverySchedule.update({
+          where: { id: schedule.id },
+          data: { status: 'CARRIER_PENDING' },
+        });
+      }
 
       await tx.yokomochiOrder.update({
         where: { id: yokomochiOrderId },
@@ -793,9 +1250,9 @@ export async function sendCarrierRequest(
 
 const carrierResponseSchema = z.object({
   carrierRequestId: z.string(),
-  availableTrips: z.coerce.number().int().min(0),
-  truckCount: z.coerce.number().int().min(0),
-  driverCount: z.coerce.number().int().min(0),
+  availableTrips: z.coerce.number().int().min(1),
+  truckCount: z.coerce.number().int().min(1),
+  driverCount: z.coerce.number().int().min(1),
   truckInfo: z.string().optional(),
   driverInfo: z.string().optional(),
   estimatedPickupTime: z.string().optional(),
@@ -826,7 +1283,10 @@ export async function submitCarrierResponse(
       return { success: false, error: 'Request not found' };
     }
 
-    const eligible = getCarrierEligibleTrips(request.yokomochiOrder.trips);
+    const scheduleTrips = request.deliveryScheduleId
+      ? request.yokomochiOrder.trips.filter((t) => t.deliveryScheduleId === request.deliveryScheduleId)
+      : request.yokomochiOrder.trips;
+    const eligible = getCarrierEligibleTrips(scheduleTrips);
 
     if (data.availableTrips > 0 && eligible.length === 0) {
       return {
@@ -842,6 +1302,25 @@ export async function submitCarrierResponse(
 
     if (data.availableTrips > 0 && carrierTripCount === 0) {
       return { success: false, error: 'No trips could be assigned to your fleet' };
+    }
+
+    if (data.availableTrips > eligible.length) {
+      return {
+        success: false,
+        error: `Available trips cannot exceed ${eligible.length} (remaining after internal fleet)`,
+      };
+    }
+
+    if (data.truckCount !== data.driverCount) {
+      return { success: false, error: 'Truck count must equal driver count' };
+    }
+
+    if (data.availableTrips < 1) {
+      return { success: false, error: 'Available trips must be at least 1' };
+    }
+
+    if (data.truckCount < 1) {
+      return { success: false, error: 'At least 1 truck and driver required' };
     }
 
     const subcontractors = await prisma.company.findMany({
@@ -1054,11 +1533,12 @@ export async function getWarehouseExternalCarrierOrders() {
     },
     include: {
       factoryRequest: { include: { factoryCompany: { select: { name: true } } } },
+      deliverySchedules: { orderBy: { deliveryDate: 'asc' } },
       trips: {
         orderBy: { tripNo: 'asc' },
         include: { internalFleetAssignment: { include: { driver: true, truck: true } } },
       },
-      carrierRequest: { include: { response: true, carrierCompany: { select: { name: true } } } },
+      carrierRequests: { include: { response: true, carrierCompany: { select: { name: true } } } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -1080,7 +1560,7 @@ export async function getWarehouseSubcontractOverview() {
 
 export async function getCarrierYokomochiRequests() {
   const session = await requireRole(['SHINWA_STAFF']);
-  return prisma.carrierRequest.findMany({
+  const requests = await prisma.carrierRequest.findMany({
     where: { carrierCompanyId: session.user.companyId },
     include: {
       yokomochiOrder: {
@@ -1088,6 +1568,7 @@ export async function getCarrierYokomochiRequests() {
           factoryRequest: {
             include: { warehouseCompany: { select: { name: true } }, factoryCompany: { select: { name: true } } },
           },
+          deliverySchedules: { orderBy: { deliveryDate: 'asc' } },
           trips: { include: { internalFleetAssignment: true, subcontractAssignment: true } },
         },
       },
@@ -1095,6 +1576,24 @@ export async function getCarrierYokomochiRequests() {
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  for (const req of requests) {
+    if (req.status === CarrierRequestStatus.PENDING) {
+      const scheduleTrips = req.deliveryScheduleId
+        ? req.yokomochiOrder.trips.filter((t) => t.deliveryScheduleId === req.deliveryScheduleId)
+        : req.yokomochiOrder.trips;
+      const remaining = countRemainingCarrierTrips(scheduleTrips);
+      if (remaining !== req.requestedTrips) {
+        await prisma.carrierRequest.update({
+          where: { id: req.id },
+          data: { requestedTrips: remaining },
+        });
+        req.requestedTrips = remaining;
+      }
+    }
+  }
+
+  return requests;
 }
 
 export async function getCarrierAcceptedTrips() {
@@ -1118,7 +1617,7 @@ export async function getCarrierSubcontractTrips() {
     where: {
       trip: {
         yokomochiOrder: {
-          carrierRequest: { carrierCompanyId: session.user.companyId },
+          carrierRequests: { some: { carrierCompanyId: session.user.companyId } },
         },
       },
     },

@@ -175,6 +175,9 @@ export type CarrierAcceptedJobGroup = {
   totalRequestedBoxes: number;
   assignedBoxes: number;
   acceptedAt: Date | null;
+  availableTrips: number;
+  truckCount: number;
+  driverCount: number;
   trips: {
     id: string;
     tripNo: number;
@@ -380,6 +383,9 @@ export async function getCarrierAcceptedJobGroups(): Promise<CarrierAcceptedJobG
       totalRequestedBoxes,
       assignedBoxes,
       acceptedAt: request.response?.respondedAt ?? request.updatedAt,
+      availableTrips: request.response?.availableTrips ?? 0,
+      truckCount: request.response?.truckCount ?? 0,
+      driverCount: request.response?.driverCount ?? 0,
       trips,
     });
   }
@@ -417,6 +423,18 @@ export async function applyCarrierFleetAllocation(
       return { success: false, error: 'No trips awaiting driver assignment' };
     }
 
+    const activeAssignments = await prisma.driverTask.findMany({
+      where: {
+        trip: { yokomochiOrderId: orderId },
+        status: { notIn: ['COMPLETED', 'CANCELLED'] },
+      },
+      select: { driverId: true, truckId: true },
+    });
+    const busyDriverIds = new Set(activeAssignments.map((a) => a.driverId));
+    const busyTruckIds = new Set(
+      activeAssignments.map((a) => a.truckId).filter((id): id is string => !!id)
+    );
+
     const trucks = await prisma.truck.findMany({
       where: { id: { in: rows.map((r) => r.truckId) }, companyId: session.user.companyId },
     });
@@ -444,6 +462,15 @@ export async function applyCarrierFleetAllocation(
       }
       if (!driver.isAvailable) {
         return { success: false, error: `Driver ${driver.name} is not available` };
+      }
+      if (busyDriverIds.has(row.driverId)) {
+        return { success: false, error: `Driver ${driver.name} is already assigned on this order` };
+      }
+      if (busyTruckIds.has(row.truckId)) {
+        return {
+          success: false,
+          error: `Truck ${truck.truckNo ?? truck.truckNumber} is already assigned on this order`,
+        };
       }
 
       const boxesPerRound = getYokomochiBoxCapacity(truck.truckType);

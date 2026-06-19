@@ -170,6 +170,7 @@ model User {
 
   factoryRequestsCreated FactoryRequest[] @relation("FactoryRequestCreator")
   negotiationActions     NegotiationHistory[]
+  negotiationChatMessages NegotiationChatMessage[] @relation("NegotiationChatSender")
 
   @@index([companyId])
   @@index([role])
@@ -599,6 +600,16 @@ model PasswordResetToken {
 
 // ─── Key Coffee Yokomochi (横持輸送) ───────────────────────────────────────────
 
+enum DeliveryScheduleStatus {
+  PLANNED
+  TRIPS_CALCULATED
+  INTERNAL_SCHEDULING
+  CARRIER_PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 enum FactoryResponseStatus {
   FULL
   PARTIAL
@@ -678,9 +689,12 @@ model YokomochiOrder {
 
   factoryRequest   FactoryRequest?
   factoryResponse  FactoryResponse?
+  factoryNegotiation FactoryNegotiation?
+  deliverySchedules DeliverySchedule[]
   negotiationHistory NegotiationHistory[]
+  negotiationChatMessages NegotiationChatMessage[]
   trips            YokomochiTrip[]
-  carrierRequest   CarrierRequest?
+  carrierRequests  CarrierRequest[]
   deliveryVerification DeliveryVerification?
   deliveryForm     YokomochiDeliveryForm?
 
@@ -707,6 +721,8 @@ model FactoryRequest {
   warehouseCompany Company        @relation("FactoryRequestWarehouse", fields: [warehouseCompanyId], references: [id])
   factoryCompany   Company        @relation("FactoryRequestFactory", fields: [factoryCompanyId], references: [id])
   createdBy        User?          @relation("FactoryRequestCreator", fields: [createdById], references: [id])
+  factoryNegotiation FactoryNegotiation?
+  deliverySchedules  DeliverySchedule[]
 
   @@index([warehouseCompanyId])
   @@index([factoryCompanyId])
@@ -731,6 +747,68 @@ model FactoryResponse {
   @@index([negotiationStatus])
 }
 
+/// Real logistics negotiation — preserves original request + partial remainder
+model FactoryNegotiation {
+  id                String                @id @default(cuid())
+  factoryRequestId  String                @unique
+  yokomochiOrderId  String                @unique
+  requestedBoxes    Int
+  availableBoxes    Int
+  remainingBoxes    Int                   @default(0)
+  availableDate     DateTime
+  nextAvailableDate DateTime?
+  status            FactoryResponseStatus
+  notes             String?
+  respondedAt       DateTime              @default(now())
+  approvedAt        DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  factoryRequest FactoryRequest @relation(fields: [factoryRequestId], references: [id], onDelete: Cascade)
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model DeliverySchedule {
+  id               String                 @id @default(cuid())
+  factoryRequestId String
+  yokomochiOrderId String
+  scheduleNo       Int
+  deliveryDate     DateTime
+  boxes            Int
+  pallets          Int
+  totalTrips       Int                    @default(0)
+  status           DeliveryScheduleStatus @default(PLANNED)
+  notes            String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  factoryRequest  FactoryRequest   @relation(fields: [factoryRequestId], references: [id], onDelete: Cascade)
+  yokomochiOrder  YokomochiOrder   @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  trips           YokomochiTrip[]
+  carrierRequests CarrierRequest[]
+
+  @@unique([yokomochiOrderId, scheduleNo])
+  @@index([factoryRequestId])
+  @@index([deliveryDate])
+}
+
+model NegotiationChatMessage {
+  id               String   @id @default(cuid())
+  yokomochiOrderId String
+  senderUserId     String
+  senderRole       UserRole
+  senderCompanyId  String
+  message          String
+  createdAt        DateTime @default(now())
+
+  yokomochiOrder YokomochiOrder @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  sender         User           @relation("NegotiationChatSender", fields: [senderUserId], references: [id])
+
+  @@index([yokomochiOrderId, createdAt])
+}
+
 model NegotiationHistory {
   id               String              @id @default(cuid())
   yokomochiOrderId String
@@ -750,18 +828,21 @@ model NegotiationHistory {
 }
 
 model YokomochiTrip {
-  id               String              @id @default(cuid())
-  yokomochiOrderId String
-  tripNo           Int
-  tripCode         String
-  pallets          Int                 @default(16)
-  boxes            Int                 @default(0)
-  status           YokomochiTripStatus @default(PLANNED)
-  carrierCompanyId String?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id                 String              @id @default(cuid())
+  yokomochiOrderId   String
+  deliveryScheduleId String?
+  scheduledDate      DateTime?
+  tripNo             Int
+  tripCode           String
+  pallets            Int                 @default(16)
+  boxes              Int                 @default(0)
+  status             YokomochiTripStatus @default(PLANNED)
+  carrierCompanyId   String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   yokomochiOrder           YokomochiOrder                  @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  deliverySchedule         DeliverySchedule?               @relation(fields: [deliveryScheduleId], references: [id], onDelete: SetNull)
   carrierCompany           Company?                        @relation(fields: [carrierCompanyId], references: [id])
   internalFleetAssignment  InternalFleetAssignment?
   driverSchedule           DriverSchedule?
@@ -770,6 +851,8 @@ model YokomochiTrip {
 
   @@unique([yokomochiOrderId, tripNo])
   @@index([yokomochiOrderId])
+  @@index([deliveryScheduleId])
+  @@index([scheduledDate])
   @@index([status])
 }
 
@@ -813,22 +896,28 @@ model DriverSchedule {
 
 model CarrierRequest {
   id                 String               @id @default(cuid())
-  yokomochiOrderId   String               @unique
+  yokomochiOrderId   String
+  deliveryScheduleId String?
   warehouseCompanyId String
   carrierCompanyId   String
+  deliveryDate       DateTime?
   requestedTrips     Int
   status             CarrierRequestStatus @default(PENDING)
   notes              String?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
-  yokomochiOrder   YokomochiOrder  @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
-  warehouseCompany Company         @relation("CarrierRequestWarehouse", fields: [warehouseCompanyId], references: [id])
-  carrierCompany   Company         @relation("CarrierRequestCarrier", fields: [carrierCompanyId], references: [id])
+  yokomochiOrder   YokomochiOrder    @relation(fields: [yokomochiOrderId], references: [id], onDelete: Cascade)
+  deliverySchedule DeliverySchedule? @relation(fields: [deliveryScheduleId], references: [id], onDelete: SetNull)
+  warehouseCompany Company           @relation("CarrierRequestWarehouse", fields: [warehouseCompanyId], references: [id])
+  carrierCompany   Company           @relation("CarrierRequestCarrier", fields: [carrierCompanyId], references: [id])
   response         CarrierResponse?
 
+  @@index([yokomochiOrderId])
+  @@index([deliveryScheduleId])
   @@index([carrierCompanyId])
   @@index([status])
+  @@index([deliveryDate])
 }
 
 model CarrierResponse {

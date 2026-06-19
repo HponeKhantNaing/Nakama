@@ -10,6 +10,7 @@ import {
   YokomochiDeliveryTrackingTable,
   type YokomochiDeliveryTrackingRow,
 } from '@/components/yokomochi/YokomochiDeliveryTrackingTable';
+import { WarehouseArrivalScanner } from '@/components/yokomochi/WarehouseArrivalScanner';
 import { useTranslation } from '@/lib/i18n/context';
 
 export function WarehouseFactoryRequestsClient({
@@ -27,6 +28,10 @@ export function WarehouseFactoryRequestsClient({
     <DashboardShell titleKey="dashboard.warehouse" navItems={warehouseNavItems}>
       <div className="space-y-6">
         <PageHeader titleKey="nav.factoryRequests" />
+
+        <section className="space-y-3">
+          <WarehouseArrivalScanner />
+        </section>
 
         <section className="space-y-3">
           <div>

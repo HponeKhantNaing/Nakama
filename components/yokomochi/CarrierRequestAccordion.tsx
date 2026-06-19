@@ -1,13 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { submitCarrierResponse } from '@/app/actions/yokomochi';
-import { getCarrierEligibleTrips } from '@/lib/yokomochi/carrier-allocation';
+import { getCarrierEligibleTrips, countInternalFleetTrips } from '@/lib/yokomochi/carrier-allocation';
+import { CarrierResponseForm } from '@/components/yokomochi/CarrierResponseForm';
 import { formatDate, cn } from '@/lib/utils';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -16,6 +12,7 @@ type CarrierRequest = {
   requestedTrips: number;
   status: string;
   createdAt: Date;
+  deliveryDate: Date | null;
   notes: string | null;
   response?: {
     availableTrips: number;
@@ -34,11 +31,14 @@ type CarrierRequest = {
       factoryCompany: { name: string };
       requestedDate: Date;
     } | null;
+    deliverySchedules?: { deliveryDate: Date }[];
     trips: {
       id: string;
       tripCode: string;
       pallets: number;
       status: string;
+      deliveryScheduleId?: string | null;
+      scheduledDate?: Date | null;
       internalFleetAssignment?: unknown | null;
       subcontractAssignment?: unknown | null;
     }[];
@@ -46,9 +46,7 @@ type CarrierRequest = {
 };
 
 export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest[] }) {
-  const router = useRouter();
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   if (requests.length === 0) {
     return (
@@ -65,6 +63,8 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
         const order = req.yokomochiOrder;
         const fr = order.factoryRequest;
         const remaining = getCarrierEligibleTrips(order.trips);
+        const internalCount = countInternalFleetTrips(order.trips);
+        const suggestedTrips = remaining.length > 0 ? remaining.length : req.requestedTrips;
         const hasResponse = !!req.response;
 
         return (
@@ -80,7 +80,10 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                   {fr?.warehouseCompany.name ?? '—'} ← {fr?.factoryCompany.name ?? '—'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {req.requestedTrips} trips requested · {formatDate(req.createdAt)}
+                  {req.requestedTrips} trips requested
+                  {(req.deliveryDate ?? req.yokomochiOrder.deliverySchedules?.[0]?.deliveryDate) &&
+                    ` · ${formatDate(req.deliveryDate ?? req.yokomochiOrder.deliverySchedules![0].deliveryDate)}`}
+                  {internalCount > 0 && ` · ${internalCount} internal`}
                 </p>
               </div>
               <Badge variant={req.status === 'PENDING' ? 'default' : 'outline'} className="text-[10px]">
@@ -92,8 +95,9 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
             {open && (
               <div className="space-y-4 border-t bg-muted/10 px-4 py-4">
                 <p className="text-sm text-muted-foreground">
-                  {order.cargoType ?? 'キーコーヒー'} · Total {order.totalTrips} trips · Carrier needs{' '}
-                  <strong>{remaining.length || req.requestedTrips}</strong>
+                  {order.cargoType ?? 'キーコーヒー'} · Total {order.totalTrips} trips
+                  {internalCount > 0 && ` · Internal ${internalCount}`} · Remaining for carrier{' '}
+                  <strong>{suggestedTrips}</strong>
                 </p>
 
                 {hasResponse ? (
@@ -110,71 +114,7 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                     )}
                   </div>
                 ) : req.status === 'PENDING' ? (
-                  <form
-                    className="grid gap-3 sm:grid-cols-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const fd = new FormData(e.currentTarget);
-                      startTransition(async () => {
-                        const result = await submitCarrierResponse({
-                          carrierRequestId: req.id,
-                          availableTrips: Number(fd.get('availableTrips')),
-                          truckCount: Number(fd.get('truckCount')),
-                          driverCount: Number(fd.get('driverCount')),
-                          truckInfo: String(fd.get('truckInfo') || ''),
-                          driverInfo: String(fd.get('driverInfo') || ''),
-                          estimatedPickupTime: String(fd.get('estimatedPickupTime') || ''),
-                          notes: String(fd.get('notes') || ''),
-                        });
-                        if (result.success) {
-                          router.push('/carrier/accepted');
-                          return;
-                        }
-                        router.refresh();
-                      });
-                    }}
-                  >
-                    <div className="space-y-1">
-                      <Label htmlFor={`trips-${req.id}`}>Available Trips</Label>
-                      <Input
-                        id={`trips-${req.id}`}
-                        name="availableTrips"
-                        type="number"
-                        min={0}
-                        max={req.requestedTrips}
-                        defaultValue={Math.min(2, req.requestedTrips)}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`trucks-${req.id}`}>Truck Count</Label>
-                      <Input id={`trucks-${req.id}`} name="truckCount" type="number" min={0} defaultValue={2} required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`drivers-${req.id}`}>Driver Count</Label>
-                      <Input id={`drivers-${req.id}`} name="driverCount" type="number" min={0} defaultValue={2} required />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor={`pickup-${req.id}`}>Estimated Pickup</Label>
-                      <Input id={`pickup-${req.id}`} name="estimatedPickupTime" type="datetime-local" required />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor={`truckinfo-${req.id}`}>Truck Info</Label>
-                      <Input id={`truckinfo-${req.id}`} name="truckInfo" placeholder="10t x2" />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor={`driverinfo-${req.id}`}>Driver Info</Label>
-                      <Input id={`driverinfo-${req.id}`} name="driverInfo" placeholder="山田, 鈴木" />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-                        Submit Response
-                      </Button>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        If capacity &lt; requested, remaining trips auto-split to subcontractors.
-                      </p>
-                    </div>
-                  </form>
+                  <CarrierResponseForm requestId={req.id} suggestedTrips={suggestedTrips} />
                 ) : null}
               </div>
             )}

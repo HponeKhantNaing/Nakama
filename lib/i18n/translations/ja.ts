@@ -245,6 +245,13 @@ const ja: Record<TranslationKey, string> = {
   'delivery.stepInTransit': '配送',
   'delivery.stepArrivedWarehouse': '倉庫',
   'delivery.stepCompleted': '完了',
+  'delivery.scanArrivalTitle': '倉庫到着確認（スキャン）',
+  'delivery.scanArrivalDesc': '荷物到着時にトリップコードをスキャンまたは入力してください。ドライバー画面にQRが表示されます。',
+  'delivery.scanHint': 'ドライバーQRをスキャンするかトリップコードを入力 — スキャンで到着承認されます。',
+  'delivery.lookup': '検索',
+  'delivery.approveArrival': '到着を承認',
+  'delivery.rejectArrival': '拒否',
+  'delivery.alreadyApproved': 'このトリップは既に確認済みです。',
 
   'analytics.completedOrders': '完了件数',
   'analytics.totalCost': '輸送コスト合計',

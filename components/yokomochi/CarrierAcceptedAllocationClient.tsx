@@ -18,6 +18,7 @@ import {
   getYokomochiBoxCapacity,
   getYokomochiVehicleLabel,
 } from '@/lib/yokomochi/vehicle-capacity';
+import { formatFleetTripPlan } from '@/lib/yokomochi/carrier-fleet-plan';
 import { useTranslation } from '@/lib/i18n/context';
 import { cn, formatDate } from '@/lib/utils';
 import { CarrierAssignedTripsTable } from '@/components/yokomochi/CarrierAssignedTripsTable';
@@ -71,6 +72,40 @@ function OrderAllocationCard({
 
   const pendingBoxes = pendingTrips.reduce((sum, trip) => sum + trip.boxes, 0);
 
+  const assignedOnOrderDriverIds = useMemo(
+    () =>
+      new Set(
+        group.trips
+          .filter(
+            (trip) =>
+              trip.driverTask &&
+              !['COMPLETED', 'CANCELLED'].includes(trip.driverTask.status)
+          )
+          .map((trip) => trip.driverTask!.driver.id)
+      ),
+    [group.trips]
+  );
+
+  const assignedOnOrderTruckIds = useMemo(
+    () =>
+      new Set(
+        group.trips
+          .filter(
+            (trip) =>
+              trip.driverTask &&
+              !['COMPLETED', 'CANCELLED'].includes(trip.driverTask.status) &&
+              trip.driverTask.truck
+          )
+          .map((trip) => trip.driverTask!.truck!.id)
+      ),
+    [group.trips]
+  );
+
+  const tripPlanHint =
+    pendingTrips.length > 0 && group.driverCount > 0
+      ? formatFleetTripPlan(pendingTrips.length, group.driverCount)
+      : null;
+
   const allocatedBoxes = useMemo(() => {
     return rows.reduce((sum, row) => {
       const truck = trucks.find((tr) => tr.id === row.truckId);
@@ -81,8 +116,29 @@ function OrderAllocationCard({
 
   const remainingBoxes = pendingBoxes - allocatedBoxes;
 
-  const availableTrucks = trucks.filter((tr) => tr.status === 'AVAILABLE');
-  const availableDrivers = drivers.filter((d) => d.isAvailable);
+  function driversForRow(rowId: string) {
+    const usedInForm = rows
+      .filter((r) => r.id !== rowId && r.driverId)
+      .map((r) => r.driverId);
+    return drivers.filter(
+      (d) =>
+        d.isAvailable &&
+        !assignedOnOrderDriverIds.has(d.id) &&
+        !usedInForm.includes(d.id)
+    );
+  }
+
+  function trucksForRow(rowId: string) {
+    const usedInForm = rows
+      .filter((r) => r.id !== rowId && r.truckId)
+      .map((r) => r.truckId);
+    return trucks.filter(
+      (tr) =>
+        tr.status === 'AVAILABLE' &&
+        !assignedOnOrderTruckIds.has(tr.id) &&
+        !usedInForm.includes(tr.id)
+    );
+  }
 
   function addVehicleRow() {
     setRows((prev) => [...prev, newRow()]);
@@ -98,7 +154,7 @@ function OrderAllocationCard({
 
   function applyAllocation() {
     setError('');
-    const validRows = rows.filter((r) => r.truckId && r.driverId);
+    const validRows = rows.filter((r) => r.truckId && r.driverId && r.deliveryTimes >= 1);
     if (validRows.length === 0) {
       setError(t('carrier.allocationNeedRow'));
       return;
@@ -183,6 +239,17 @@ function OrderAllocationCard({
             <li>4t: 6 pallets = 36 boxes / trip</li>
             <li>Van: 5 boxes / trip</li>
           </ul>
+          {tripPlanHint && (
+            <p className="mt-2 text-foreground">
+              Fleet plan: <strong>{tripPlanHint}</strong>
+            </p>
+          )}
+          {group.truckCount > 0 && (
+            <p className="mt-1">
+              Responded with up to {group.truckCount} truck(s) / {group.driverCount} driver(s) for{' '}
+              {group.availableTrips} trip(s). Add multiple vehicles below if box capacity requires it.
+            </p>
+          )}
         </div>
 
         {pendingTrips.length > 0 && (
@@ -198,6 +265,8 @@ function OrderAllocationCard({
             {rows.map((row) => {
               const truck = trucks.find((tr) => tr.id === row.truckId);
               const rowBoxes = truck ? calcAllocatedBoxes(truck.truckType, row.deliveryTimes) : 0;
+              const rowDrivers = driversForRow(row.id);
+              const rowTrucks = trucksForRow(row.id);
 
               return (
                 <div
@@ -212,7 +281,7 @@ function OrderAllocationCard({
                       onChange={(e) => updateRow(row.id, { truckId: e.target.value })}
                     >
                       <option value="">{t('shinwa.selectVehicle')}</option>
-                      {availableTrucks.map((tr) => (
+                      {rowTrucks.map((tr) => (
                         <option key={tr.id} value={tr.id}>
                           {tr.truckNo ?? tr.truckNumber} — {getYokomochiVehicleLabel(tr.truckType)} (
                           {getYokomochiBoxCapacity(tr.truckType)} {t('carrier.boxes')})
@@ -228,7 +297,7 @@ function OrderAllocationCard({
                       onChange={(e) => updateRow(row.id, { driverId: e.target.value })}
                     >
                       <option value="">{t('shinwa.selectDriver')}</option>
-                      {availableDrivers.map((d) => (
+                      {rowDrivers.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.name}
                         </option>
@@ -238,15 +307,23 @@ function OrderAllocationCard({
                   <div className="space-y-1">
                     <Label className="text-xs">{t('carrier.deliveryTimes')}</Label>
                     <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      value={row.deliveryTimes}
-                      onChange={(e) =>
-                        updateRow(row.id, {
-                          deliveryTimes: Math.max(1, Number(e.target.value) || 1),
-                        })
-                      }
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={row.deliveryTimes > 0 ? String(row.deliveryTimes) : ''}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/\D/g, '');
+                        if (v === '') {
+                          updateRow(row.id, { deliveryTimes: 0 });
+                          return;
+                        }
+                        updateRow(row.id, { deliveryTimes: parseInt(v, 10) });
+                      }}
+                      onBlur={() => {
+                        if (row.deliveryTimes < 1) {
+                          updateRow(row.id, { deliveryTimes: 1 });
+                        }
+                      }}
                       className="w-20"
                     />
                   </div>
