@@ -69,8 +69,12 @@ function OrderAllocationCard({
   const [error, setError] = useState('');
 
   const pendingTrips = group.trips.filter((trip) => trip.status === 'CARRIER_ASSIGNED');
-
-  const pendingBoxes = pendingTrips.reduce((sum, trip) => sum + trip.boxes, 0);
+  const pendingTripCount =
+    pendingTrips.length > 0 ? pendingTrips.length : group.eligibleTripCount;
+  const pendingBoxes =
+    pendingTrips.length > 0
+      ? pendingTrips.reduce((sum, trip) => sum + trip.boxes, 0)
+      : group.eligibleBoxes;
 
   const assignedOnOrderDriverIds = useMemo(
     () =>
@@ -102,8 +106,8 @@ function OrderAllocationCard({
   );
 
   const tripPlanHint =
-    pendingTrips.length > 0 && group.driverCount > 0
-      ? formatFleetTripPlan(pendingTrips.length, group.driverCount)
+    pendingTripCount > 0 && group.driverCount > 0
+      ? formatFleetTripPlan(pendingTripCount, group.driverCount)
       : null;
 
   const allocatedBoxes = useMemo(() => {
@@ -163,7 +167,7 @@ function OrderAllocationCard({
       setError(`${t('carrier.allocationInsufficient')} (${remainingBoxes} ${t('carrier.boxes')})`);
       return;
     }
-    if (pendingTrips.length === 0) {
+    if (pendingTripCount === 0) {
       setError(t('carrier.allTripsAssigned'));
       return;
     }
@@ -193,14 +197,37 @@ function OrderAllocationCard({
           <div>
             <p className="font-mono text-xs text-muted-foreground">{group.orderNo}</p>
             <CardTitle className="text-lg">{t('carrier.fleetAllocation')}</CardTitle>
-            {group.acceptedAt && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('carrier.acceptedAt')}: {formatDate(group.acceptedAt)}
-              </p>
-            )}
+            <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+              {group.requestedDate && (
+                <p>
+                  {t('carrier.requestedDate')}:{' '}
+                  <span className="font-medium text-foreground">
+                    {formatDate(group.requestedDate)}
+                  </span>
+                </p>
+              )}
+              {group.deliveryDate && (
+                <p>
+                  {t('carrier.deliveryDate')}:{' '}
+                  <span className="font-medium text-foreground">
+                    {formatDate(group.deliveryDate)}
+                  </span>
+                </p>
+              )}
+              {group.requestSentAt && (
+                <p>
+                  {t('carrier.requestSentAt')}: {formatDate(group.requestSentAt)}
+                </p>
+              )}
+              {group.acceptedAt && (
+                <p>
+                  {t('carrier.acceptedAt')}: {formatDate(group.acceptedAt)}
+                </p>
+              )}
+            </div>
           </div>
           <Badge variant="outline">
-            {pendingTrips.length} {t('carrier.tripsPending')}
+            {pendingTripCount} {t('carrier.tripsPending')}
           </Badge>
         </div>
       </CardHeader>
@@ -208,6 +235,22 @@ function OrderAllocationCard({
         <div className="rounded-xl bg-primary/5 p-4">
           <p className="text-sm text-muted-foreground">{t('carrier.requestedCargoType')}</p>
           <p className="text-lg font-bold text-primary">{group.cargoType ?? '—'}</p>
+          {(group.requestedDate || group.deliveryDate) && (
+            <div className="mt-3 grid gap-3 border-b border-primary/10 pb-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">{t('carrier.requestedDate')}</p>
+                <p className="text-base font-semibold">
+                  {group.requestedDate ? formatDate(group.requestedDate) : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('carrier.deliveryDate')}</p>
+                <p className="text-base font-semibold">
+                  {group.deliveryDate ? formatDate(group.deliveryDate) : '—'}
+                </p>
+              </div>
+            </div>
+          )}
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <div>
               <p className="text-xs text-muted-foreground">{t('carrier.totalOrderBoxes')}</p>
@@ -235,8 +278,8 @@ function OrderAllocationCard({
         <div className="rounded-lg border border-dashed border-primary/20 bg-muted/10 p-3 text-xs text-muted-foreground">
           <p>{t('carrier.capacityRulesTitle')}</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
-            <li>10t: 16 pallets = 96 boxes / trip</li>
-            <li>4t: 6 pallets = 36 boxes / trip</li>
+            <li>10t: 16 pallets = 256 boxes / trip</li>
+            <li>4t: 5 pallets = 80 boxes / trip</li>
             <li>Van: 5 boxes / trip</li>
           </ul>
           {tripPlanHint && (
@@ -252,7 +295,7 @@ function OrderAllocationCard({
           )}
         </div>
 
-        {pendingTrips.length > 0 && (
+        {pendingTripCount > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>{t('carrier.sequentialVehicleAddition')}</Label>
@@ -388,8 +431,9 @@ export function CarrierAcceptedAllocationClient({
     );
   }
 
-  const pendingGroups = jobGroups.filter((group) =>
-    group.trips.some((trip) => trip.status === 'CARRIER_ASSIGNED')
+  const pendingGroups = jobGroups.filter(
+    (group) =>
+      group.trips.some((trip) => trip.status === 'CARRIER_ASSIGNED') || group.eligibleTripCount > 0
   );
 
   return (

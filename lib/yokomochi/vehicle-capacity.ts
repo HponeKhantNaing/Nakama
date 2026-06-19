@@ -1,4 +1,10 @@
 import { TruckType } from '@prisma/client';
+import {
+  FOUR_TON_BOXES,
+  FOUR_TON_PALLETS,
+  TEN_TON_BOXES,
+  TEN_TON_PALLETS,
+} from '@/lib/yokomochi/pallet-capacity';
 
 export type YokomochiVehicleCapacity = {
   boxes: number;
@@ -8,8 +14,8 @@ export type YokomochiVehicleCapacity = {
 
 /** Yokomochi carrier allocation rules (boxes per single trip). */
 export const YOKOMOCHI_VEHICLE_CAPACITY: Record<TruckType, YokomochiVehicleCapacity> = {
-  TEN_TON: { boxes: 96, pallets: 16, label: '10-ton Large Truck (10t)' },
-  MEDIUM: { boxes: 36, pallets: 6, label: '4-ton Medium Truck (4t)' },
+  TEN_TON: { boxes: TEN_TON_BOXES, pallets: TEN_TON_PALLETS, label: '10-ton Large Truck (10t)' },
+  MEDIUM: { boxes: FOUR_TON_BOXES, pallets: FOUR_TON_PALLETS, label: '4-ton Medium Truck (4t)' },
   SMALL: { boxes: 5, pallets: 1, label: 'Van (Small)' },
   BANN: { boxes: 5, pallets: 1, label: 'Van (Small)' },
 };

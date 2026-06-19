@@ -174,6 +174,11 @@ export type CarrierAcceptedJobGroup = {
   cargoType: string | null;
   totalRequestedBoxes: number;
   assignedBoxes: number;
+  eligibleTripCount: number;
+  eligibleBoxes: number;
+  requestedDate: Date | null;
+  deliveryDate: Date | null;
+  requestSentAt: Date | null;
   acceptedAt: Date | null;
   availableTrips: number;
   truckCount: number;
@@ -207,49 +212,38 @@ export type CarrierAcceptedJobGroup = {
   }[];
 };
 
-async function syncCarrierTripsForAcceptedRequests(companyId: string) {
-  const requests = await prisma.carrierRequest.findMany({
-    where: {
-      carrierCompanyId: companyId,
-      status: { in: [CarrierRequestStatus.ACCEPTED, CarrierRequestStatus.PARTIAL] },
-      response: { availableTrips: { gt: 0 } },
-    },
+async function reserveCarrierTripsForOrder(orderId: string, companyId: string, targetCount: number) {
+  const order = await prisma.yokomochiOrder.findUnique({
+    where: { id: orderId },
     include: {
-      response: true,
-      yokomochiOrder: {
-        include: {
-          trips: { include: { internalFleetAssignment: true, subcontractAssignment: true } },
-        },
-      },
+      trips: { include: { internalFleetAssignment: true, subcontractAssignment: true } },
+    },
+  });
+  if (!order) return 0;
+
+  const assignedCount = order.trips.filter(
+    (trip) =>
+      trip.carrierCompanyId === companyId &&
+      (trip.status === YokomochiTripStatus.CARRIER_ASSIGNED ||
+        trip.status === YokomochiTripStatus.DRIVER_ASSIGNED)
+  ).length;
+
+  const remaining = targetCount - assignedCount;
+  if (remaining <= 0) return assignedCount;
+
+  const eligible = getCarrierEligibleTrips(order.trips);
+  const toAssign = eligible.slice(0, remaining);
+  if (toAssign.length === 0) return assignedCount;
+
+  await prisma.yokomochiTrip.updateMany({
+    where: { id: { in: toAssign.map((trip) => trip.id) } },
+    data: {
+      status: YokomochiTripStatus.CARRIER_ASSIGNED,
+      carrierCompanyId: companyId,
     },
   });
 
-  for (const request of requests) {
-    if (!request.response) continue;
-
-    const assignedCount = request.yokomochiOrder.trips.filter(
-      (trip) =>
-        trip.carrierCompanyId === companyId &&
-        (trip.status === YokomochiTripStatus.CARRIER_ASSIGNED ||
-          trip.status === YokomochiTripStatus.DRIVER_ASSIGNED)
-    ).length;
-
-    const targetCount = Math.min(request.response.availableTrips, request.requestedTrips);
-    const remaining = targetCount - assignedCount;
-    if (remaining <= 0) continue;
-
-    const eligible = getCarrierEligibleTrips(request.yokomochiOrder.trips);
-    const toAssign = eligible.slice(0, remaining);
-    if (toAssign.length === 0) continue;
-
-    await prisma.yokomochiTrip.updateMany({
-      where: { id: { in: toAssign.map((trip) => trip.id) } },
-      data: {
-        status: YokomochiTripStatus.CARRIER_ASSIGNED,
-        carrierCompanyId: companyId,
-      },
-    });
-  }
+  return assignedCount + toAssign.length;
 }
 
 function mapTripToGroupTrip(
@@ -318,8 +312,6 @@ export async function getCarrierAcceptedJobGroups(): Promise<CarrierAcceptedJobG
   const session = await requireRole(['SHINWA_STAFF']);
   const companyId = session.user.companyId;
 
-  await syncCarrierTripsForAcceptedRequests(companyId);
-
   const acceptedRequests = await prisma.carrierRequest.findMany({
     where: {
       carrierCompanyId: companyId,
@@ -333,15 +325,12 @@ export async function getCarrierAcceptedJobGroups(): Promise<CarrierAcceptedJobG
           id: true,
           orderNo: true,
           cargoType: true,
-          factoryRequest: { select: { cargoType: true, requestedBoxes: true } },
+          factoryRequest: { select: { cargoType: true, requestedBoxes: true, requestedDate: true } },
+          deliverySchedules: { select: { deliveryDate: true }, orderBy: { scheduleNo: 'asc' } },
           trips: {
-            where: {
-              carrierCompanyId: companyId,
-              status: {
-                in: [YokomochiTripStatus.CARRIER_ASSIGNED, YokomochiTripStatus.DRIVER_ASSIGNED],
-              },
-            },
             include: {
+              internalFleetAssignment: true,
+              subcontractAssignment: true,
               driverTask: {
                 include: {
                   driver: { include: { user: { select: { email: true } } } },
@@ -361,14 +350,34 @@ export async function getCarrierAcceptedJobGroups(): Promise<CarrierAcceptedJobG
 
   for (const request of acceptedRequests) {
     const order = request.yokomochiOrder;
-    if (order.trips.length === 0) continue;
+    const responseTrips = request.response?.availableTrips ?? 0;
+    const eligibleAll = getCarrierEligibleTrips(order.trips);
+    const driverAssignedCount = order.trips.filter(
+      (trip) =>
+        trip.carrierCompanyId === companyId &&
+        trip.status === YokomochiTripStatus.DRIVER_ASSIGNED
+    ).length;
+    const slotsToFill = Math.max(0, responseTrips - driverAssignedCount);
+    const eligibleTripCount = Math.min(slotsToFill, eligibleAll.length);
+    const eligibleBoxes = eligibleAll
+      .slice(0, eligibleTripCount)
+      .reduce((sum, trip) => sum + trip.boxes, 0);
+
+    const carrierTrips = order.trips.filter(
+      (trip) =>
+        trip.carrierCompanyId === companyId &&
+        (trip.status === YokomochiTripStatus.CARRIER_ASSIGNED ||
+          trip.status === YokomochiTripStatus.DRIVER_ASSIGNED)
+    );
+
+    if (eligibleTripCount === 0 && carrierTrips.length === 0) continue;
 
     const cargoType =
       order.cargoType ?? order.factoryRequest?.cargoType ?? 'キーコーヒー飲料';
 
     let totalRequestedBoxes = 0;
     let assignedBoxes = 0;
-    const trips = order.trips.map((trip) => {
+    const trips = carrierTrips.map((trip) => {
       totalRequestedBoxes += trip.boxes;
       if (trip.status === YokomochiTripStatus.DRIVER_ASSIGNED) {
         assignedBoxes += trip.boxes;
@@ -376,12 +385,26 @@ export async function getCarrierAcceptedJobGroups(): Promise<CarrierAcceptedJobG
       return mapTripToGroupTrip(trip);
     });
 
+    if (totalRequestedBoxes === 0) {
+      totalRequestedBoxes = eligibleBoxes;
+    }
+
+    const deliveryDate =
+      request.deliveryDate ??
+      order.deliverySchedules?.[0]?.deliveryDate ??
+      null;
+
     groups.push({
       orderId: order.id,
       orderNo: order.orderNo,
       cargoType,
       totalRequestedBoxes,
       assignedBoxes,
+      eligibleTripCount,
+      eligibleBoxes,
+      requestedDate: order.factoryRequest?.requestedDate ?? null,
+      deliveryDate,
+      requestSentAt: request.createdAt,
       acceptedAt: request.response?.respondedAt ?? request.updatedAt,
       availableTrips: request.response?.availableTrips ?? 0,
       truckCount: request.response?.truckCount ?? 0,
@@ -408,6 +431,26 @@ export async function applyCarrierFleetAllocation(
     if (!parsed.success) return { success: false, error: 'Invalid allocation data' };
 
     const { orderId, rows } = parsed.data;
+
+    const acceptedRequest = await prisma.carrierRequest.findFirst({
+      where: {
+        yokomochiOrderId: orderId,
+        carrierCompanyId: session.user.companyId,
+        status: { in: [CarrierRequestStatus.ACCEPTED, CarrierRequestStatus.PARTIAL] },
+        response: { availableTrips: { gt: 0 } },
+      },
+      include: { response: true },
+    });
+
+    if (!acceptedRequest?.response) {
+      return { success: false, error: 'No accepted carrier request for this order' };
+    }
+
+    const targetTrips = Math.min(
+      acceptedRequest.response.availableTrips,
+      acceptedRequest.requestedTrips
+    );
+    await reserveCarrierTripsForOrder(orderId, session.user.companyId, targetTrips);
 
     const pendingTrips = await prisma.yokomochiTrip.findMany({
       where: {

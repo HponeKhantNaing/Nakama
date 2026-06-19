@@ -133,7 +133,7 @@ export function WarehouseInternalFleetClient({
 
         <p className="text-sm text-muted-foreground">
 
-          10t truck = 16 pallets/trip. Assign 小野 · 浅川 by delivery date and hour.
+          10t truck = 16 pallets/trip (256 boxes). Assign 小野 · 浅川 by delivery date.
 
         </p>
 

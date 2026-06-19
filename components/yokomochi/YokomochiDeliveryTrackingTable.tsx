@@ -1,17 +1,19 @@
 'use client';
 
+import { useMemo, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { formatDate, cn } from '@/lib/utils';
-import {
-  DRIVER_TASK_STEPS,
-  formatDriverTaskStatus,
-  getDeliveryTrackingStepIndex,
-} from '@/lib/yokomochi/delivery-status';
+import { formatDriverTaskStatus } from '@/lib/yokomochi/delivery-status';
+import { buildMultiTripRowMeta } from '@/lib/yokomochi/multi-trip-tracking';
+import { DeliveryStepProgressBar } from '@/components/yokomochi/DeliveryStepProgressBar';
 import { useTranslation } from '@/lib/i18n/context';
 
 export type YokomochiDeliveryTrackingRow = {
   orderNo: string;
   tripCode: string;
+  tripNo: number;
+  driverId: string;
+  truckId: string | null;
   partnerName: string;
   cargoType: string | null;
   boxes: number;
@@ -34,58 +36,46 @@ export type YokomochiDeliveryTrackingRow = {
   updatedAt: Date;
 };
 
+const CELL_BASE =
+  'whitespace-normal break-words px-4 py-3 text-sm leading-relaxed text-left';
+
+const TH =
+  'whitespace-normal break-words border-r border-border/40 px-4 py-3 text-left text-xs font-semibold uppercase leading-relaxed tracking-wide text-muted-foreground last:border-r-0 align-top';
+
 function formatTimestamp(value: Date | null | undefined) {
   return value ? formatDate(value) : '—';
 }
 
-function DeliveryStepProgress({
-  status,
-  verificationStatus,
+function TrackCell({
+  children,
+  align = 'left',
+  className,
+  minWidth = 'min-w-[120px]',
 }: {
-  status: string;
-  verificationStatus?: string | null;
+  children: ReactNode;
+  align?: 'left' | 'right' | 'center';
+  className?: string;
+  minWidth?: string;
 }) {
-  const { t } = useTranslation();
-  const currentIndex = getDeliveryTrackingStepIndex(status, verificationStatus);
-  const labels = [
-    t('delivery.stepAssigned'),
-    t('delivery.stepArrivedFactory'),
-    t('delivery.stepLoaded'),
-    t('delivery.stepInTransit'),
-    t('delivery.stepArrivedWarehouse'),
-    t('delivery.stepCompleted'),
-  ];
-
   return (
-    <div className="flex min-w-[280px] items-center gap-0.5">
-      {DRIVER_TASK_STEPS.map((step, index) => {
-        const done = index <= currentIndex && status !== 'CANCELLED';
-        const active = index === currentIndex;
-        const awaitingWarehouse =
-          status === 'ARRIVED_WAREHOUSE' &&
-          verificationStatus !== 'APPROVED' &&
-          index === DRIVER_TASK_STEPS.indexOf('ARRIVED_WAREHOUSE');
-        return (
-          <div key={step} className="flex flex-1 flex-col items-center gap-1">
-            <div
-              className={cn(
-                'h-2 w-full rounded-full',
-                done ? 'bg-primary' : 'bg-muted',
-                active && 'ring-2 ring-primary/40',
-                awaitingWarehouse && 'bg-amber-400'
-              )}
-              title={labels[index]}
-            />
-            <span className="hidden text-[9px] text-muted-foreground xl:block">{labels[index]}</span>
-          </div>
-        );
-      })}
-    </div>
+    <td className={cn('align-top border-r border-border/30 last:border-r-0', minWidth)}>
+      <div
+        className={cn(
+          CELL_BASE,
+          align === 'right' && 'text-right',
+          align === 'center' && 'text-center',
+          className
+        )}
+      >
+        {children}
+      </div>
+    </td>
   );
 }
 
 export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDeliveryTrackingRow[] }) {
   const { t } = useTranslation();
+  const multiTripMeta = useMemo(() => buildMultiTripRowMeta(rows), [rows]);
 
   if (rows.length === 0) {
     return (
@@ -96,110 +86,90 @@ export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDelive
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-white">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1400px] border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border/60 bg-muted/40">
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('table.requestNo')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.tripCode')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.partner')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.selectDriver')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.phone')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.selectVehicle')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.route')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('carrier.boxes')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.currentStatus')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.progress')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.arrivedFactory')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.loaded')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.inTransit')}
-              </th>
-              <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.arrivedWarehouse')}
-              </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('delivery.lastUpdated')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => (
+    <div className="w-full max-w-full overflow-x-auto rounded-xl border border-border/60 bg-white">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-border/60 bg-muted/40">
+            <th className={cn(TH, 'min-w-[120px]')}>{t('table.requestNo')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('carrier.tripCode')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('delivery.partner')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('carrier.selectDriver')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('carrier.phone')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('carrier.selectVehicle')}</th>
+            <th className={cn(TH, 'min-w-[140px]')}>{t('carrier.route')}</th>
+            <th className={cn(TH, 'min-w-[100px] text-right')}>{t('carrier.boxes')}</th>
+            <th className={cn(TH, 'min-w-[140px]')}>{t('delivery.currentStatus')}</th>
+            <th className={cn(TH, 'min-w-[180px]')}>{t('delivery.progress')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('delivery.arrivedFactory')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('delivery.loaded')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('delivery.inTransit')}</th>
+            <th className={cn(TH, 'min-w-[120px]')}>{t('delivery.arrivedWarehouse')}</th>
+            <th className={cn(TH, 'min-w-[120px] border-r-0')}>{t('delivery.lastUpdated')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const legMeta = multiTripMeta.get(row.tripCode);
+            const showProgress = legMeta?.showProgress ?? true;
+            const displayStatus = showProgress
+              ? (legMeta?.progressStatus ?? row.taskStatus)
+              : row.taskStatus;
+
+            return (
               <tr key={`${row.orderNo}-${row.tripCode}`} className={index % 2 === 0 ? 'bg-white' : 'bg-muted/15'}>
-                <td className="border-r border-border/30 px-3 py-2 font-mono text-xs">{row.orderNo}</td>
-                <td className="border-r border-border/30 px-3 py-2 font-medium">{row.tripCode}</td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs">{row.partnerName}</td>
-                <td className="border-r border-border/30 px-3 py-2">{row.driverName}</td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs">{row.driverPhone ?? '—'}</td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs">
+                <TrackCell className="font-mono text-xs">{row.orderNo}</TrackCell>
+                <TrackCell className="font-medium">{row.tripCode}</TrackCell>
+                <TrackCell className="text-xs">{row.partnerName}</TrackCell>
+                <TrackCell>{row.driverName}</TrackCell>
+                <TrackCell className="text-xs">{row.driverPhone ?? '—'}</TrackCell>
+                <TrackCell className="text-xs" minWidth="min-w-[140px]">
                   {row.vehicleLabel ?? '—'}
                   {row.plateNumber ? ` (${row.plateNumber})` : ''}
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs">
+                </TrackCell>
+                <TrackCell className="text-xs" minWidth="min-w-[140px]">
                   {row.pickupLocation} → {row.destination}
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-right tabular-nums">
+                </TrackCell>
+                <TrackCell align="right" className="tabular-nums" minWidth="min-w-[100px]">
                   {row.boxes}
                   <span className="text-muted-foreground"> / {row.pallets}P</span>
-                </td>
-                <td className="border-r border-border/30 px-3 py-2">
-                  <Badge variant="outline" className="text-[10px]">
-                    {formatDriverTaskStatus(row.taskStatus)}
-                    {row.taskStatus === 'ARRIVED_WAREHOUSE' &&
-                      row.verificationStatus !== 'APPROVED' &&
+                </TrackCell>
+                <TrackCell minWidth="min-w-[140px]">
+                  <Badge
+                    variant="outline"
+                    className="h-auto whitespace-normal break-words text-left text-[10px] leading-relaxed"
+                  >
+                    {formatDriverTaskStatus(displayStatus)}
+                    {displayStatus === 'ARRIVED_WAREHOUSE' &&
+                      (legMeta?.progressVerificationStatus ?? row.verificationStatus) !== 'APPROVED' &&
                       ' · Awaiting scan'}
-                    {row.verificationStatus === 'APPROVED' && ' · Verified'}
+                    {row.taskStatus === 'COMPLETED' && ' · Verified'}
                   </Badge>
-                </td>
-                <td className="border-r border-border/30 px-3 py-2">
-                  <DeliveryStepProgress
-                    status={row.taskStatus}
-                    verificationStatus={row.verificationStatus}
-                  />
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
+                </TrackCell>
+                <TrackCell minWidth="min-w-[180px]">
+                  {showProgress ? (
+                    <DeliveryStepProgressBar
+                      status={legMeta?.progressStatus ?? row.taskStatus}
+                      verificationStatus={legMeta?.progressVerificationStatus ?? row.verificationStatus}
+                      bulletNumber={legMeta?.bulletNumber}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TrackCell>
+                <TrackCell className="text-xs text-muted-foreground">
                   {formatTimestamp(row.arrivedFactoryAt)}
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
-                  {formatTimestamp(row.loadedAt)}
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
-                  {formatTimestamp(row.startedAt)}
-                </td>
-                <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
+                </TrackCell>
+                <TrackCell className="text-xs text-muted-foreground">{formatTimestamp(row.loadedAt)}</TrackCell>
+                <TrackCell className="text-xs text-muted-foreground">{formatTimestamp(row.startedAt)}</TrackCell>
+                <TrackCell className="text-xs text-muted-foreground">
                   {formatTimestamp(row.arrivedWarehouseAt)}
-                </td>
-                <td className="px-3 py-2 text-xs text-muted-foreground">{formatTimestamp(row.updatedAt)}</td>
+                </TrackCell>
+                <TrackCell className="text-xs text-muted-foreground">{formatTimestamp(row.updatedAt)}</TrackCell>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

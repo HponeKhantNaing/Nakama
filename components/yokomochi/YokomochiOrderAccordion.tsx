@@ -12,13 +12,14 @@ import { handleNegotiation, verifyWarehouseDelivery, confirmOrderTrips } from '@
 import { calculateTripsFromPallets } from '@/lib/yokomochi/trip-calculation';
 import { ChevronDown, ChevronRight, ArrowRight, Truck } from 'lucide-react';
 import { BusinessDeliveryCalendar } from '@/components/yokomochi/BusinessDeliveryCalendar';
+import {
+  formatPalletsDisplay,
+  isValidOrderBoxQuantity,
+  wholePalletsFromBoxes,
+} from '@/lib/yokomochi/pallet-capacity';
+import { useTranslation } from '@/lib/i18n/context';
 
-const BOXES_PER_PALLET = 16;
-const DEFAULT_REQUESTED_BOXES = '500';
-
-function calculatePalletsFromBoxes(boxes: number) {
-  return Math.ceil(Math.max(0, boxes) / BOXES_PER_PALLET);
-}
+const DEFAULT_REQUESTED_BOXES = '400';
 
 function isPositiveIntegerInput(value: string) {
   return value === '' || /^[1-9]\d*$/.test(value);
@@ -105,6 +106,11 @@ function warehouseNextStep(order: Order): { label: string; href?: string; action
   return null;
 }
 
+const WAREHOUSE_ORDER_GRID =
+  'md:grid-cols-[120px_minmax(0,1.4fr)_72px_minmax(150px,1.6fr)_56px_minmax(0,136px)_32px]';
+const DEFAULT_ORDER_GRID =
+  'md:grid-cols-[120px_minmax(0,1.4fr)_72px_minmax(150px,1.6fr)_56px_32px]';
+
 export function YokomochiOrderAccordion({
   orders,
   mode,
@@ -144,13 +150,21 @@ export function YokomochiOrderAccordion({
         </div>
       )}
     <div className="overflow-hidden rounded-xl border bg-white">
-      <div className="hidden border-b bg-muted/40 px-4 py-2.5 text-xs font-medium uppercase text-muted-foreground md:grid md:grid-cols-[120px_1fr_80px_100px_80px_32px] md:gap-3">
+      <div
+        className={cn(
+          'hidden border-b bg-muted/40 px-4 py-2.5 text-xs font-medium uppercase text-muted-foreground md:grid md:items-center md:gap-2',
+          mode === 'warehouse' ? WAREHOUSE_ORDER_GRID : DEFAULT_ORDER_GRID
+        )}
+      >
         <span>Order</span>
         <span>Product / {mode === 'factory' ? 'Warehouse' : 'Factory'}</span>
         <span>Pallets</span>
-        <span>Status</span>
+        <span className="min-w-[150px] whitespace-nowrap">Status</span>
         <span>Trips</span>
-        <span />
+        {mode === 'warehouse' && <span>Action</span>}
+        <span aria-hidden className="sr-only">
+          Expand
+        </span>
       </div>
 
       {filtered.map((order) => {
@@ -166,37 +180,33 @@ export function YokomochiOrderAccordion({
 
         return (
           <div key={order.id} className="border-b last:border-b-0">
+            {/* Mobile layout */}
             <div
-              className={cn('flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/30', open && 'bg-muted/20')}
+              className={cn(
+                'flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/30 md:hidden',
+                open && 'bg-muted/20'
+              )}
             >
               <button
                 type="button"
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 onClick={() => setExpanded(open ? null : order.id)}
               >
-                <span className="hidden w-[120px] font-mono text-xs md:block">{order.orderNo}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-xs text-muted-foreground md:hidden">{order.orderNo}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{order.orderNo}</p>
                   <p className="truncate text-sm font-medium">
                     {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
                   </p>
                   <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
                 </div>
-                <span className="hidden w-[80px] text-sm md:block">{fr.requestedPallets}</span>
-                <span className="hidden w-[100px] md:block">
-                  <Badge variant="outline" className="text-[10px]">
-                    {order.status.replace(/_/g, ' ')}
-                  </Badge>
-                </span>
-                <span className="hidden w-[80px] text-sm font-medium md:block">{order.totalTrips || trips.length || '—'}</span>
-                {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
               </button>
               {mode === 'warehouse' && next && (
-                <div className="shrink-0">
+                <div className="max-w-[140px] shrink-0">
                   {next.action === 'confirm-trips' ? (
                     <Button
                       size="sm"
-                      className="h-8 text-xs"
+                      className="h-8 w-full truncate text-xs"
                       disabled={isPending}
                       onClick={() =>
                         startTransition(async () => {
@@ -210,14 +220,92 @@ export function YokomochiOrderAccordion({
                   ) : next.href ? (
                     <Link
                       href={next.href}
-                      className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent"
+                      className="inline-flex h-8 max-w-full items-center truncate rounded-md border border-input bg-background px-2 text-xs font-medium hover:bg-accent"
                     >
-                      <Truck className="mr-1 h-3 w-3" />
-                      {next.label}
+                      <Truck className="mr-1 h-3 w-3 shrink-0" />
+                      <span className="truncate">{next.label}</span>
                     </Link>
                   ) : null}
                 </div>
               )}
+            </div>
+
+            {/* Desktop grid — columns stay aligned regardless of action text length */}
+            <div
+              className={cn(
+                'hidden px-4 py-3 hover:bg-muted/30 md:grid md:items-center md:gap-2',
+                mode === 'warehouse' ? WAREHOUSE_ORDER_GRID : DEFAULT_ORDER_GRID,
+                open && 'bg-muted/20'
+              )}
+            >
+              <button
+                type="button"
+                className="truncate text-left font-mono text-xs"
+                onClick={() => setExpanded(open ? null : order.id)}
+              >
+                {order.orderNo}
+              </button>
+              <button
+                type="button"
+                className="min-w-0 truncate text-left"
+                onClick={() => setExpanded(open ? null : order.id)}
+              >
+                <p className="truncate text-sm font-medium">
+                  {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+              </button>
+              <span className="text-sm tabular-nums">{fr.requestedPallets}</span>
+              <span className="min-w-[150px] overflow-hidden">
+                <Badge
+                  variant="outline"
+                  className="whitespace-nowrap text-[10px]"
+                  title={order.status.replace(/_/g, ' ')}
+                >
+                  {order.status.replace(/_/g, ' ')}
+                </Badge>
+              </span>
+              <span className="text-sm font-medium tabular-nums">
+                {order.totalTrips || trips.length || '—'}
+              </span>
+              {mode === 'warehouse' && (
+                <div className="min-w-0">
+                  {next?.action === 'confirm-trips' ? (
+                    <Button
+                      size="sm"
+                      className="h-8 w-full max-w-full truncate px-2 text-xs"
+                      disabled={isPending}
+                      onClick={() =>
+                        startTransition(async () => {
+                          await confirmOrderTrips(order.id);
+                          router.refresh();
+                        })
+                      }
+                    >
+                      <span className="truncate">{next.label}</span>
+                    </Button>
+                  ) : next?.href ? (
+                    <Link
+                      href={next.href}
+                      className="inline-flex h-8 w-full max-w-full items-center truncate rounded-md border border-input bg-background px-2 text-xs font-medium hover:bg-accent"
+                      title={next.label}
+                    >
+                      <Truck className="mr-1 h-3 w-3 shrink-0" />
+                      <span className="truncate">{next.label}</span>
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
+              )}
+              <button
+                type="button"
+                className="flex justify-end"
+                onClick={() => setExpanded(open ? null : order.id)}
+                aria-label={open ? 'Collapse' : 'Expand'}
+              >
+                {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
             </div>
 
             {open && (
@@ -421,14 +509,18 @@ export function CreateFactoryRequestForm({
   factories: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [requestedBoxes, setRequestedBoxes] = useState(DEFAULT_REQUESTED_BOXES);
   const requestedBoxCount = Number(requestedBoxes) || 0;
-  const requestedPallets = calculatePalletsFromBoxes(requestedBoxCount);
+  const requestedPallets = wholePalletsFromBoxes(requestedBoxCount);
+  const boxesValid = isValidOrderBoxQuantity(requestedBoxCount);
+  const palletDisplay = formatPalletsDisplay(requestedBoxCount);
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!boxesValid) return;
     const fd = new FormData(e.currentTarget);
     const boxes = Number(fd.get('requestedBoxes'));
     setError(null);
@@ -436,7 +528,7 @@ export function CreateFactoryRequestForm({
       const { createFactoryRequest } = await import('@/app/actions/yokomochi');
       const result = await createFactoryRequest({
         factoryCompanyId: String(fd.get('factoryCompanyId')),
-        requestedPallets: calculatePalletsFromBoxes(boxes),
+        requestedPallets: wholePalletsFromBoxes(boxes),
         requestedBoxes: boxes,
         requestedDate: String(fd.get('requestedDate')),
         cargoType: String(fd.get('cargoType') || ''),
@@ -487,11 +579,20 @@ export function CreateFactoryRequestForm({
             }
           }}
         />
+        {requestedBoxCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {requestedBoxCount} {t('carrier.boxes')} = {palletDisplay}{' '}
+            {t('warehouse.palletsLabel')}
+          </p>
+        )}
+        {requestedBoxCount > 0 && !boxesValid && (
+          <p className="text-xs text-destructive">{t('warehouse.invalidBoxQuantity')}</p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>Pallets</Label>
         {/* Pallets are derived from boxes so arrow-key and stepper changes stay in sync. */}
-        <Input name="requestedPallets" type="number" readOnly value={requestedPallets} />
+        <Input name="requestedPallets" type="number" readOnly value={requestedPallets || ''} />
       </div>
       <div className="space-y-2">
         <Label>Requested Date</Label>
@@ -503,7 +604,7 @@ export function CreateFactoryRequestForm({
       </div>
       {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
       <div className="md:col-span-2">
-        <Button type="submit" disabled={isPending} className="rounded-xl">
+        <Button type="submit" disabled={isPending || !boxesValid} className="rounded-xl">
           {isPending ? 'Sending...' : 'Send Factory Request'}
         </Button>
       </div>

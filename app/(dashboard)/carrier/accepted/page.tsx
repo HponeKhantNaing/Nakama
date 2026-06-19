@@ -1,26 +1,25 @@
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
-import { CarrierAcceptedAllocationClient } from '@/components/yokomochi/CarrierAcceptedAllocationClient';
 import { getCarrierAcceptedJobGroups, getCarrierFleetDirectory } from '@/app/actions/carrier-fleet';
+import { getYokomochiDeliveryTracking } from '@/app/actions/yokomochi';
 import { carrierNavItems } from '@/lib/nav/yokomochi';
+import { CarrierAcceptedPageClient } from './carrier-accepted-page-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CarrierAcceptedPage() {
-  const [jobGroups, fleet] = await Promise.all([
+  const [jobGroups, fleet, deliveries] = await Promise.all([
     getCarrierAcceptedJobGroups(),
     getCarrierFleetDirectory(),
+    getYokomochiDeliveryTracking(),
   ]);
 
   return (
     <DashboardShell titleKey="dashboard.carrier" navItems={carrierNavItems}>
       <div className="space-y-6">
         <PageHeader titleKey="nav.acceptedJobs" />
-        <p className="text-sm text-muted-foreground">
-          Allocate registered vehicles to accepted jobs. Remaining boxes update as you add trucks and
-          delivery times.
-        </p>
-        <CarrierAcceptedAllocationClient
+        <CarrierAcceptedPageClient
           jobGroups={jobGroups}
+          deliveries={deliveries}
           drivers={fleet.drivers.map((d) => ({
             id: d.id,
             name: d.name,

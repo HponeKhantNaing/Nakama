@@ -224,10 +224,10 @@ async function main() {
 
   for (let i = 0; i < internalFleetDrivers.length; i++) {
     const d = internalFleetDrivers[i];
-    const truckNum = `WH-10T-${d.truckKey}`;
+    const truckNum = `10T-${d.truckKey}`;
     await prisma.truck.upsert({
       where: { truckNumber: truckNum },
-      update: { maxPallet: 16, maxBoxes: 96, companyId: maruichi.id },
+      update: { maxPallet: 16, maxBoxes: 256, companyId: maruichi.id },
       create: {
         truckNumber: truckNum,
         truckNo: truckNum,
@@ -235,7 +235,7 @@ async function main() {
         plateNumber: `名古屋500あ${d.truckKey}`,
         capacityWeightKg: 10000,
         capacityVolumeM3: 40,
-        maxBoxes: 96,
+        maxBoxes: 256,
         maxPallet: 16,
         status: TruckStatus.AVAILABLE,
         companyId: maruichi.id,

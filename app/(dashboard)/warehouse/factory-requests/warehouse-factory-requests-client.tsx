@@ -7,10 +7,11 @@ import {
   CreateFactoryRequestForm,
 } from '@/components/yokomochi/YokomochiOrderAccordion';
 import {
-  YokomochiDeliveryTrackingTable,
-  type YokomochiDeliveryTrackingRow,
-} from '@/components/yokomochi/YokomochiDeliveryTrackingTable';
+  YokomochiDeliveryTrackingLive,
+} from '@/components/yokomochi/YokomochiDeliveryTrackingLive';
+import type { YokomochiDeliveryTrackingRow } from '@/components/yokomochi/YokomochiDeliveryTrackingTable';
 import { WarehouseArrivalScanner } from '@/components/yokomochi/WarehouseArrivalScanner';
+import { useCallback, useState } from 'react';
 import { useTranslation } from '@/lib/i18n/context';
 
 export function WarehouseFactoryRequestsClient({
@@ -23,6 +24,8 @@ export function WarehouseFactoryRequestsClient({
   deliveries: YokomochiDeliveryTrackingRow[];
 }) {
   const { t } = useTranslation();
+  const [trackingKey, setTrackingKey] = useState(0);
+  const handleVerified = useCallback(() => setTrackingKey((k) => k + 1), []);
 
   return (
     <DashboardShell titleKey="dashboard.warehouse" navItems={warehouseNavItems}>
@@ -30,7 +33,7 @@ export function WarehouseFactoryRequestsClient({
         <PageHeader titleKey="nav.factoryRequests" />
 
         <section className="space-y-3">
-          <WarehouseArrivalScanner />
+          <WarehouseArrivalScanner onVerified={handleVerified} />
         </section>
 
         <section className="space-y-3">
@@ -38,7 +41,7 @@ export function WarehouseFactoryRequestsClient({
             <h2 className="text-sm font-semibold">{t('delivery.trackingTitle')}</h2>
             <p className="text-xs text-muted-foreground">{t('delivery.trackingDesc')}</p>
           </div>
-          <YokomochiDeliveryTrackingTable rows={deliveries} />
+          <YokomochiDeliveryTrackingLive key={trackingKey} initialRows={deliveries} refreshNonce={trackingKey} />
         </section>
 
         <CreateFactoryRequestForm factories={factories} />
