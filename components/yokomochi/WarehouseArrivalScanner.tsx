@@ -19,9 +19,9 @@ import {
   verifyYokomochiArrivalByTripCode,
 } from '@/app/actions/yokomochi';
 import { normalizeTripScanInput } from '@/lib/yokomochi/trip-scan';
-import { formatDate } from '@/lib/utils';
-import { ScanLine, CheckCircle2 } from 'lucide-react';
+import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
+import { ScanLine, CheckCircle2 } from 'lucide-react';
 
 type ArrivalInfo = NonNullable<Awaited<ReturnType<typeof lookupYokomochiArrival>>>;
 
@@ -30,7 +30,7 @@ export function WarehouseArrivalScanner({
 }: {
   onVerified?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -49,9 +49,7 @@ export function WarehouseArrivalScanner({
       if (!result) {
         setArrival(null);
         setConfirmOpen(false);
-        setError(
-          'Trip not found. Scan the trip code printed under the driver QR (e.g. YM-20260619-XXXXX-S1-T1).'
-        );
+        setError(t('scan.tripNotFound'));
         return;
       }
 
@@ -69,7 +67,9 @@ export function WarehouseArrivalScanner({
         setArrival(result);
         setConfirmOpen(false);
         setError(
-          `Not ready for warehouse scan — driver status: ${result.taskStatus.replace(/_/g, ' ')}`
+          interpolate(t('scan.notReady'), {
+            status: statusLabel(result.taskStatus),
+          })
         );
         return;
       }
@@ -86,7 +86,7 @@ export function WarehouseArrivalScanner({
     startTransition(async () => {
       const result = await verifyYokomochiArrivalByTripCode(arrival.tripCode, true);
       if (!result.success) {
-        setError(result.error ?? 'Verification failed');
+        setError(result.error ?? t('scan.verificationFailed'));
         return;
       }
       setCode('');
@@ -128,7 +128,7 @@ export function WarehouseArrivalScanner({
                     scan(pasted);
                   }
                 }}
-                placeholder="YM-20260619-XXXXX-S1-T1"
+                placeholder={t('scan.tripPlaceholder')}
                 className="font-mono"
                 autoComplete="off"
                 autoFocus
@@ -155,7 +155,7 @@ export function WarehouseArrivalScanner({
                   <p className="font-mono text-xs text-muted-foreground">{arrival.orderNo}</p>
                   <p className="text-lg font-semibold">{arrival.tripCode}</p>
                 </div>
-                <Badge variant="outline">{arrival.taskStatus.replace(/_/g, ' ')}</Badge>
+                <Badge variant="outline">{statusLabel(arrival.taskStatus)}</Badge>
               </div>
             </div>
           )}
@@ -174,21 +174,24 @@ export function WarehouseArrivalScanner({
               <p className="text-lg font-semibold">{arrival.tripCode}</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 <p>
-                  <span className="text-muted-foreground">Factory:</span> {arrival.factoryName}
+                  <span className="text-muted-foreground">{t('scan.factory')}:</span> {arrival.factoryName}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Driver:</span> {arrival.driverName}
+                  <span className="text-muted-foreground">{t('scan.driver')}:</span> {arrival.driverName}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Cargo:</span> {arrival.cargoType ?? '—'}
+                  <span className="text-muted-foreground">{t('scan.cargo')}:</span> {arrival.cargoType ?? '—'}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Qty:</span> {arrival.boxes} boxes /{' '}
-                  {arrival.pallets}P
+                  <span className="text-muted-foreground">{t('scan.qty')}:</span>{' '}
+                  {interpolate(t('scan.qtyDetail'), {
+                    boxes: arrival.boxes,
+                    pallets: arrival.pallets,
+                  })}
                 </p>
                 {arrival.arrivedWarehouseAt && (
                   <p className="sm:col-span-2">
-                    <span className="text-muted-foreground">Arrived:</span>{' '}
+                    <span className="text-muted-foreground">{t('scan.arrived')}:</span>{' '}
                     {formatDate(arrival.arrivedWarehouseAt)}
                   </p>
                 )}

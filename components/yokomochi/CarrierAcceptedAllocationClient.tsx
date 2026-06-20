@@ -16,11 +16,11 @@ import {
 import {
   calcAllocatedBoxes,
   getYokomochiBoxCapacity,
-  getYokomochiVehicleLabel,
 } from '@/lib/yokomochi/vehicle-capacity';
 import { formatFleetTripPlan } from '@/lib/yokomochi/carrier-fleet-plan';
 import { useTranslation } from '@/lib/i18n/context';
-import { cn, formatDate } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import { CarrierAssignedTripsTable } from '@/components/yokomochi/CarrierAssignedTripsTable';
 
 type FleetDriver = { id: string; name: string; isAvailable: boolean };
@@ -63,7 +63,7 @@ function OrderAllocationCard({
   trucks: FleetTruck[];
 }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, formatDate, truckLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [rows, setRows] = useState<AllocationRow[]>([newRow()]);
   const [error, setError] = useState('');
@@ -182,7 +182,7 @@ function OrderAllocationCard({
         })),
       });
       if (!result.success) {
-        setError(result.error ?? 'Failed');
+        setError(result.error ?? t('common.failed'));
         return;
       }
       setRows([newRow()]);
@@ -278,19 +278,22 @@ function OrderAllocationCard({
         <div className="rounded-lg border border-dashed border-primary/20 bg-muted/10 p-3 text-xs text-muted-foreground">
           <p>{t('carrier.capacityRulesTitle')}</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
-            <li>10t: 16 pallets = 256 boxes / trip</li>
-            <li>4t: 5 pallets = 80 boxes / trip</li>
-            <li>Van: 5 boxes / trip</li>
+            <li>{t('carrier.capacity10t')}</li>
+            <li>{t('carrier.capacity4t')}</li>
+            <li>{t('carrier.capacityVan')}</li>
           </ul>
           {tripPlanHint && (
             <p className="mt-2 text-foreground">
-              Fleet plan: <strong>{tripPlanHint}</strong>
+              {t('carrier.fleetPlan')}: <strong>{tripPlanHint}</strong>
             </p>
           )}
           {group.truckCount > 0 && (
             <p className="mt-1">
-              Responded with up to {group.truckCount} truck(s) / {group.driverCount} driver(s) for{' '}
-              {group.availableTrips} trip(s). Add multiple vehicles below if box capacity requires it.
+              {interpolate(t('carrier.respondedWith'), {
+                trucks: group.truckCount,
+                drivers: group.driverCount,
+                trips: group.availableTrips,
+              })}
             </p>
           )}
         </div>
@@ -326,7 +329,7 @@ function OrderAllocationCard({
                       <option value="">{t('shinwa.selectVehicle')}</option>
                       {rowTrucks.map((tr) => (
                         <option key={tr.id} value={tr.id}>
-                          {tr.truckNo ?? tr.truckNumber} — {getYokomochiVehicleLabel(tr.truckType)} (
+                          {tr.truckNo ?? tr.truckNumber} — {truckLabel(tr.truckType)} (
                           {getYokomochiBoxCapacity(tr.truckType)} {t('carrier.boxes')})
                         </option>
                       ))}
@@ -380,7 +383,7 @@ function OrderAllocationCard({
                       variant="ghost"
                       size="icon"
                       onClick={() => removeRow(row.id)}
-                      aria-label="Remove"
+                      aria-label={t('common.remove')}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -421,7 +424,7 @@ export function CarrierAcceptedAllocationClient({
   drivers: FleetDriver[];
   trucks: FleetTruck[];
 }) {
-  const { t } = useTranslation();
+  const { t, formatDate, truckLabel } = useTranslation();
 
   if (jobGroups.length === 0) {
     return (

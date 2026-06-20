@@ -23,6 +23,7 @@ export function interpolate(
 }
 
 export { translateStatus } from './status';
+export { translateTruckType } from './truck';
 export { formatLocaleDate } from './format';
 
 export type { TranslationKey };

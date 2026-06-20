@@ -659,6 +659,114 @@ const en = {
   'map.origin': 'Origin',
   'map.destination': 'Destination',
   'map.current': 'Current',
+  'map.originPopup': 'Origin (Warehouse)',
+  'map.destinationPopup': 'Destination (Customer)',
+  'map.remainingKm': '{km} km',
+  'map.mapboxTokenHint': 'Set NEXT_PUBLIC_MAPBOX_TOKEN to enable live map',
+  'map.truckProgress': '{percent}% complete',
+
+  'common.openMenu': 'Open menu',
+  'common.closeMenu': 'Close menu',
+  'common.closeNav': 'Close navigation',
+  'common.remove': 'Remove',
+
+  'scan.tripNotFound':
+    'Trip not found. Scan the trip code printed under the driver QR (e.g. YM-20260619-XXXXX-S1-T1).',
+  'scan.tripPlaceholder': 'YM-20260619-XXXXX-S1-T1',
+  'scan.notReady': 'Not ready for warehouse scan — driver status: {status}',
+  'scan.verificationFailed': 'Verification failed',
+
+  'carrier.capacity10t': '10t: 16 pallets = 256 boxes / trip',
+  'carrier.capacity4t': '4t: 5 pallets = 80 boxes / trip',
+  'carrier.capacityVan': 'Van: 5 boxes / trip',
+  'carrier.fleetPlan': 'Fleet plan',
+  'carrier.respondedWith':
+    'Responded with up to {trucks} truck(s) / {drivers} driver(s) for {trips} trip(s). Add multiple vehicles below if box capacity requires it.',
+  'carrier.driverNamePlaceholder': 'Yamada Taro',
+  'carrier.driverEmailPlaceholder': 'driver@shinwa.jp',
+  'carrier.licensePlaceholder': 'DL-123456',
+  'carrier.truckNumberPlaceholder': 'SHINWA-10T-01',
+  'carrier.platePlaceholder': 'Shinagawa 500 A 1234',
+  'carrier.driverInfoPlaceholder': 'Yamada, Suzuki',
+
+  'subcontract.noAssignments':
+    'No subcontract assignments yet. They appear when carrier capacity is insufficient.',
+  'subcontract.tripsAssigned': '{count} trip(s) assigned',
+
+  'confirm.loading': 'Loading...',
+  'confirm.confirmedTitle': 'Delivery Confirmed',
+  'confirm.title': 'Delivery Confirmation',
+  'confirm.orderNo': 'Order',
+  'confirm.orderNoLabel': 'Order: {orderNo}',
+  'confirm.customer': 'Customer',
+  'confirm.arrivedAt': 'Arrived',
+  'confirm.products': 'Products',
+  'confirm.yourName': 'Your Name',
+  'confirm.namePlaceholder': 'Yamada Taro',
+  'confirm.comment': 'Comment (optional)',
+  'confirm.commentPlaceholder': 'Notes',
+  'confirm.submitting': 'Confirming...',
+  'confirm.approveDelivery': 'Approve Delivery',
+  'confirm.deliveredItems': 'Delivered Items',
+
+  'qrModal.title': 'Customer QR — {requestNo}',
+  'qrModal.confirmed': 'Customer confirmed',
+  'qrModal.waiting': 'Waiting for customer scan',
+  'qrModal.hint': 'Please ask customer to scan to confirm delivery.',
+  'qrModal.notGenerated': 'QR is not generated yet.',
+  'qrModal.alt': 'Delivery QR',
+
+  'monitor.carrier': 'Carrier',
+  'monitor.eta': 'ETA',
+  'monitor.etaMinutes': '{minutes} min',
+
+  'driver.online': 'Online',
+  'driver.offline': 'Offline',
+  'driver.completeQrFirst': 'Complete customer QR scan below first.',
+  'driver.actionsQueued': '{count} action(s) queued — will sync when online.',
+  'driver.boxesWeight': '{boxes} boxes · {weight} kg',
+  'driver.defaultDriver': 'Driver',
+
+  'driverHeader.truck': 'Truck',
+  'driverHeader.type': 'Type',
+  'driverHeader.license': 'License',
+  'driverHeader.rating': 'Rating',
+
+  'map.trackRouteTitle': 'Track Route — {requestNo} · {origin} → {destination}',
+
+  'carrier.noCompletedTrips': 'No completed carrier trips yet.',
+
+  'subcontract.carrierPageDesc':
+    'Trips delegated to subcontractors when your fleet capacity is insufficient.',
+  'subcontract.warehousePageDesc':
+    'Auto-created when carrier capacity is less than requested trips.',
+
+  'warehouse.assignFailed': 'Failed to assign',
+  'fleet.computeFailed': 'Failed to compute plan',
+
+  'shinwa.liveGpsTracking': '{requestNo} — Live GPS Tracking',
+
+  'status.DRIVING': 'Driving',
+  'status.ON_DELIVERY': 'On Delivery',
+  'status.AVAILABLE': 'Available',
+  'status.ONLINE': 'Online',
+  'status.OFFLINE': 'Offline',
+  'status.BREAK': 'On Break',
+
+  'status.ARRIVED_FACTORY': 'At Factory',
+  'status.LOADED_CARGO': 'Loaded',
+  'status.ARRIVED_WAREHOUSE': 'At Warehouse',
+  'status.CARRIER_ASSIGNED': 'Carrier Assigned',
+  'status.CARRIER_PENDING': 'Carrier Pending',
+  'status.FACTORY_PENDING': 'Factory Pending',
+  'status.NEGOTIATING': 'Negotiating',
+  'status.TRIPS_CALCULATED': 'Trips Calculated',
+  'status.INTERNAL_SCHEDULING': 'Internal Scheduling',
+  'status.AWAITING_VERIFICATION': 'Awaiting Verification',
+  'status.COMPLETED': 'Completed',
+  'status.FULL': 'Full',
+  'status.PARTIAL': 'Partial',
+  'status.REJECTED': 'Rejected',
 } as const;
 
 export type TranslationKey = keyof typeof en;

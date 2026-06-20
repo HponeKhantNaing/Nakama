@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
 import { TrackingMapWrapper } from '@/components/maps/tracking-map-wrapper';
 import { LatLng, calculateProgress } from '@/lib/tms/routing';
+import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
 
 import { shinwaNavItems } from '@/lib/nav/shinwa';
@@ -61,7 +62,7 @@ export function TrackingPageClient({ requestId }: { requestId: string }) {
           ? {
               ...prev,
               driver: {
-                name: prev.driver?.name ?? 'Driver',
+                name: prev.driver?.name ?? t('driver.defaultDriver'),
                 currentLat: gps.current.lat,
                 currentLng: gps.current.lng,
               },
@@ -97,7 +98,7 @@ export function TrackingPageClient({ requestId }: { requestId: string }) {
       <div className="space-y-6">
         <PageHeader titleKey="shinwa.incomingOrders" />
         <p className="text-sm text-muted-foreground">
-          {data?.requestNo ?? requestId} — Live GPS Tracking
+          {interpolate(t('shinwa.liveGpsTracking'), { requestNo: data?.requestNo ?? requestId })}
         </p>
         <TrackingMapWrapper
           origin={origin}
@@ -107,7 +108,7 @@ export function TrackingPageClient({ requestId }: { requestId: string }) {
           progressPercent={data?.progressPercent ?? 0}
           remainingKm={remainingKm}
           etaMinutes={remainingMin}
-          status={data?.status ?? 'Driving'}
+          status={data?.status ?? 'IN_TRANSIT'}
         />
       </div>
     </DashboardShell>

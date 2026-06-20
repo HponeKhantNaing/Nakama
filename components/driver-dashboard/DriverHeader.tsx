@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
+import { interpolate } from '@/lib/i18n';
 
 export type DriverHeaderInfo = {
   name: string;
@@ -23,10 +24,14 @@ function statusTone(status: string) {
 }
 
 export function DriverHeader({ info }: { info: DriverHeaderInfo }) {
-  const initials = useMemo(() => {
-    const parts = info.name.split(' ').filter(Boolean);
-    return (parts[0]?.[0] ?? 'D') + (parts[1]?.[0] ?? '');
-  }, [info.name]);
+  const { t, statusLabel, truckLabel } = useTranslation();
+
+  const initials = info.name
+    .split(' ')
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2) || 'D';
 
   return (
     <Card className="sticky top-14 z-30 rounded-3xl border-border/60 bg-sidebar shadow-soft sm:top-16">
@@ -38,18 +43,27 @@ export function DriverHeader({ info }: { info: DriverHeaderInfo }) {
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-base font-bold">{info.name}</p>
             <Badge className={cn('rounded-xl border-0 px-3 py-1', statusTone(info.status))}>
-              {info.status.replace(/_/g, ' ')}
+              {statusLabel(info.status)}
             </Badge>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span>Truck: {info.truckNo ?? '—'}</span>
-            <span>Type: {info.truckType ?? '—'}</span>
-            <span>License: {info.licenseType ?? '—'}</span>
-            {info.rating != null && <span>Rating: {info.rating.toFixed(1)}</span>}
+            <span>
+              {t('driverHeader.truck')}: {info.truckNo ?? '—'}
+            </span>
+            <span>
+              {t('driverHeader.type')}: {info.truckType ? truckLabel(info.truckType) : '—'}
+            </span>
+            <span>
+              {t('driverHeader.license')}: {info.licenseType ? truckLabel(info.licenseType) : '—'}
+            </span>
+            {info.rating != null && (
+              <span>
+                {t('driverHeader.rating')}: {info.rating.toFixed(1)}
+              </span>
+            )}
           </div>
         </div>
       </CardContent>
     </Card>
   );
 }
-

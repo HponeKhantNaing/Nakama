@@ -15,6 +15,7 @@ import {
   translateStatus,
   type Locale,
   type TranslationKey,
+  translateTruckType,
 } from './index';
 
 const STORAGE_KEY = 'mtms-locale';
@@ -25,6 +26,7 @@ interface LanguageContextValue {
   t: (key: TranslationKey) => string;
   formatDate: (date: Date | string | null | undefined) => string;
   statusLabel: (status: string) => string;
+  truckLabel: (type: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -66,9 +68,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [t]
   );
 
+  const truckLabel = useCallback(
+    (type: string) => translateTruckType(type, t),
+    [t]
+  );
+
   const value = useMemo(
-    () => ({ locale, setLocale, t, formatDate, statusLabel }),
-    [locale, setLocale, t, formatDate, statusLabel]
+    () => ({ locale, setLocale, t, formatDate, statusLabel, truckLabel }),
+    [locale, setLocale, t, formatDate, statusLabel, truckLabel]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

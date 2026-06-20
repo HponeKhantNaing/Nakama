@@ -2,8 +2,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { formatDate, cn } from '@/lib/utils';
-import { formatDriverTaskStatus } from '@/lib/yokomochi/delivery-status';
+import { cn } from '@/lib/utils';
 import { buildMultiTripRowMeta } from '@/lib/yokomochi/multi-trip-tracking';
 import { DeliveryStepProgressBar } from '@/components/yokomochi/DeliveryStepProgressBar';
 import { useTranslation } from '@/lib/i18n/context';
@@ -24,6 +23,7 @@ export type YokomochiDeliveryTrackingRow = {
   driverPhone: string | null;
   driverEmail: string | null;
   vehicleLabel: string | null;
+  truckType: string | null;
   plateNumber: string | null;
   taskStatus: string;
   tripStatus: string;
@@ -41,10 +41,6 @@ const CELL_BASE =
 
 const TH =
   'whitespace-normal break-words border-r border-border/40 px-4 py-3 text-left text-xs font-semibold uppercase leading-relaxed tracking-wide text-muted-foreground last:border-r-0 align-top';
-
-function formatTimestamp(value: Date | null | undefined) {
-  return value ? formatDate(value) : '—';
-}
 
 function TrackCell({
   children,
@@ -74,7 +70,12 @@ function TrackCell({
 }
 
 export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDeliveryTrackingRow[] }) {
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel, truckLabel } = useTranslation();
+
+  function formatTimestamp(value: Date | null | undefined) {
+    return value ? formatDate(value) : '—';
+  }
+
   const multiTripMeta = useMemo(() => buildMultiTripRowMeta(rows), [rows]);
 
   if (rows.length === 0) {
@@ -123,7 +124,7 @@ export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDelive
                 <TrackCell>{row.driverName}</TrackCell>
                 <TrackCell className="text-xs">{row.driverPhone ?? '—'}</TrackCell>
                 <TrackCell className="text-xs" minWidth="min-w-[140px]">
-                  {row.vehicleLabel ?? '—'}
+                  {row.truckType ? truckLabel(row.truckType) : (row.vehicleLabel ?? '—')}
                   {row.plateNumber ? ` (${row.plateNumber})` : ''}
                 </TrackCell>
                 <TrackCell className="text-xs" minWidth="min-w-[140px]">
@@ -138,7 +139,7 @@ export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDelive
                     variant="outline"
                     className="h-auto whitespace-normal break-words text-left text-[10px] leading-relaxed"
                   >
-                    {formatDriverTaskStatus(displayStatus)}
+                    {statusLabel(displayStatus)}
                     {displayStatus === 'ARRIVED_WAREHOUSE' &&
                       (legMeta?.progressVerificationStatus ?? row.verificationStatus) !== 'APPROVED' &&
                       ' · Awaiting scan'}

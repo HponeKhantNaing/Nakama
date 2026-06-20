@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createCarrierDriver, createCarrierTruck } from '@/app/actions/carrier-fleet';
-import { getYokomochiVehicleLabel } from '@/lib/yokomochi/vehicle-capacity';
 import { useTranslation } from '@/lib/i18n/context';
 
 type Driver = {
@@ -43,7 +42,7 @@ export function CarrierFleetManager({
   trucks: Truck[];
 }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, truckLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [driverError, setDriverError] = useState('');
   const [truckError, setTruckError] = useState('');
@@ -66,7 +65,7 @@ export function CarrierFleetManager({
         licenseType: fd.get('licenseType') as LicenseType,
       });
       if (!result.success) {
-        setDriverError(result.error ?? 'Failed');
+        setDriverError(result.error ?? t('common.failed'));
         return;
       }
       setDriverSuccess(t('carrier.driverAdded'));
@@ -91,7 +90,7 @@ export function CarrierFleetManager({
         capacityVolumeM3: Number(fd.get('capacityVolumeM3') || 0) || undefined,
       });
       if (!result.success) {
-        setTruckError(result.error ?? 'Failed');
+        setTruckError(result.error ?? t('common.failed'));
         return;
       }
       setTruckSuccess(t('carrier.vehicleAdded'));
@@ -110,7 +109,7 @@ export function CarrierFleetManager({
           <form onSubmit={addDriver} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="driver-name">{t('carrier.driverName')} *</Label>
-              <Input id="driver-name" name="name" required placeholder="山田 太郎" />
+              <Input id="driver-name" name="name" required placeholder={t('carrier.driverNamePlaceholder')} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="driver-email">{t('carrier.email')} *</Label>
@@ -119,7 +118,7 @@ export function CarrierFleetManager({
                 name="email"
                 type="email"
                 required
-                placeholder="driver@shinwa.jp"
+                placeholder={t('carrier.driverEmailPlaceholder')}
                 autoComplete="off"
               />
             </div>
@@ -141,7 +140,7 @@ export function CarrierFleetManager({
             </div>
             <div className="space-y-1">
               <Label htmlFor="driver-license">{t('carrier.licenseNo')}</Label>
-              <Input id="driver-license" name="licenseNo" placeholder="DL-123456" />
+              <Input id="driver-license" name="licenseNo" placeholder={t('carrier.licensePlaceholder')} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="driver-license-type">{t('carrier.licenseType')}</Label>
@@ -203,7 +202,7 @@ export function CarrierFleetManager({
           <form onSubmit={addTruck} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="truck-number">{t('carrier.truckNumber')} *</Label>
-              <Input id="truck-number" name="truckNumber" required placeholder="SHINWA-10T-01" />
+              <Input id="truck-number" name="truckNumber" required placeholder={t('carrier.truckNumberPlaceholder')} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="truck-no">{t('carrier.truckNo')}</Label>
@@ -211,7 +210,7 @@ export function CarrierFleetManager({
             </div>
             <div className="space-y-1">
               <Label htmlFor="plate-number">{t('carrier.plateNumber')} *</Label>
-              <Input id="plate-number" name="plateNumber" required placeholder="品川500あ1234" />
+              <Input id="plate-number" name="plateNumber" required placeholder={t('carrier.platePlaceholder')} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="truck-type">{t('carrier.vehicleType')} *</Label>
@@ -221,18 +220,10 @@ export function CarrierFleetManager({
                 className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm"
                 defaultValue={TruckType.TEN_TON}
               >
-                <option value={TruckType.TEN_TON}>
-                  {getYokomochiVehicleLabel(TruckType.TEN_TON)} — 96 boxes
-                </option>
-                <option value={TruckType.MEDIUM}>
-                  {getYokomochiVehicleLabel(TruckType.MEDIUM)} — 36 boxes
-                </option>
-                <option value={TruckType.SMALL}>
-                  {getYokomochiVehicleLabel(TruckType.SMALL)} — 5 boxes
-                </option>
-                <option value={TruckType.BANN}>
-                  {getYokomochiVehicleLabel(TruckType.BANN)} — 5 boxes
-                </option>
+                <option value={TruckType.TEN_TON}>{truckLabel(TruckType.TEN_TON)}</option>
+                <option value={TruckType.MEDIUM}>{truckLabel(TruckType.MEDIUM)}</option>
+                <option value={TruckType.SMALL}>{truckLabel(TruckType.SMALL)}</option>
+                <option value={TruckType.BANN}>{truckLabel(TruckType.BANN)}</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -266,7 +257,7 @@ export function CarrierFleetManager({
                     <div>
                       <p className="font-semibold">{tr.truckNo ?? tr.truckNumber}</p>
                       <p className="text-xs text-muted-foreground">
-                        {getYokomochiVehicleLabel(tr.truckType)} · {tr.plateNumber} · {tr.maxBoxes}{' '}
+                        {truckLabel(tr.truckType)} · {tr.plateNumber} · {tr.maxBoxes}{' '}
                         {t('carrier.boxes')}
                       </p>
                     </div>

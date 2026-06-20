@@ -1,7 +1,8 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Assignment = {
   id: string;
@@ -17,10 +18,12 @@ type Assignment = {
 };
 
 export function SubcontractOverview({ assignments }: { assignments: Assignment[] }) {
+  const { t, formatDate, statusLabel } = useTranslation();
+
   if (assignments.length === 0) {
     return (
       <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No subcontract assignments yet. They appear when carrier capacity is insufficient.
+        {t('subcontract.noAssignments')}
       </div>
     );
   }
@@ -37,7 +40,9 @@ export function SubcontractOverview({ assignments }: { assignments: Assignment[]
         <div key={name} className="overflow-hidden rounded-xl border bg-white">
           <div className="border-b bg-muted/30 px-4 py-3">
             <p className="font-semibold">{name}</p>
-            <p className="text-xs text-muted-foreground">{items.length} trip(s) assigned</p>
+            <p className="text-xs text-muted-foreground">
+              {interpolate(t('subcontract.tripsAssigned'), { count: items.length })}
+            </p>
           </div>
           {items.map((a) => (
             <div key={a.id} className="flex items-center justify-between border-b px-4 py-3 text-sm last:border-b-0">
@@ -48,7 +53,7 @@ export function SubcontractOverview({ assignments }: { assignments: Assignment[]
                 </p>
                 <p className="text-xs text-muted-foreground">{formatDate(a.createdAt)}</p>
               </div>
-              <Badge variant="outline">{a.trip.status.replace(/_/g, ' ')}</Badge>
+              <Badge variant="outline">{statusLabel(a.trip.status)}</Badge>
             </div>
           ))}
         </div>

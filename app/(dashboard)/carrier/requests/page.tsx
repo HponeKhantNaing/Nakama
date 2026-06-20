@@ -1,4 +1,5 @@
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
+import { TranslatedText } from '@/components/i18n/translated-text';
 import { CarrierRequestAccordion } from '@/components/yokomochi/CarrierRequestAccordion';
 import { getCarrierYokomochiRequests } from '@/app/actions/yokomochi';
 import { carrierNavItems } from '@/lib/nav/yokomochi';
@@ -10,9 +11,7 @@ export default async function CarrierRequestsPage() {
     <DashboardShell titleKey="dashboard.carrier" navItems={carrierNavItems}>
       <div className="space-y-6">
         <PageHeader titleKey="nav.newRequests" />
-        <p className="text-sm text-muted-foreground">
-          20号物流センターからの横持残便依頼。対応可能便数を回答してください。
-        </p>
+        <TranslatedText messageKey="carrier.requestsPageDesc" className="text-sm text-muted-foreground" />
         <CarrierRequestAccordion requests={requests as any} />
       </div>
     </DashboardShell>

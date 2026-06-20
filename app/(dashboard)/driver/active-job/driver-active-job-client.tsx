@@ -16,9 +16,10 @@ import { useGpsSimulation } from '@/hooks/useGpsSimulation';
 import { decodePolyline } from '@/lib/tms/routing';
 import { updateAssignmentStatus, recordAssignmentProgress, rejectTruckAssignment } from '@/app/actions/fleet';
 import { updateDeliveryStatus } from '@/app/actions/transport';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import type { LatLng } from '@/lib/tms/routing';
-import { cn, statusColor, formatDate } from '@/lib/utils';
-import { useOfflineActionQueue } from '@/hooks/useOfflineActionQueue';
+import { cn, statusColor } from '@/lib/utils';
 import { MapPin, Package, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { AppLogo } from '@/components/ui/app-logo';
 
@@ -52,7 +53,7 @@ function stepGuide(status: string, confirmed: boolean, t: (k: any) => string) {
 
 export function DriverActiveJobClient({ data }: { data: any }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel, truckLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [podOpen, setPodOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(true);
@@ -104,7 +105,7 @@ export function DriverActiveJobClient({ data }: { data: any }) {
       : 0;
   const current = effectiveStatus === 'DELIVERED' ? destination : simState?.current;
 
-  const truckLabel =
+  const assignedTruckNo =
     assignment?.truck?.truckNo ??
     activeJob?.tripAllocation?.truck?.truckNo ??
     activeJob?.tripAllocation?.truck?.plateNumber ??
@@ -183,11 +184,11 @@ export function DriverActiveJobClient({ data }: { data: any }) {
             <div className="min-w-0">
               <p className="font-semibold">{driver.name}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {truckLabel} · {driver.licenseType?.replace(/_/g, ' ') ?? 'Driver'}
+                {assignedTruckNo} · {driver.licenseType ? truckLabel(driver.licenseType) : t('driver.defaultDriver')}
               </p>
             </div>
             <Badge className={cn('w-fit shrink-0 rounded-lg font-normal', online ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
-              {online ? 'Online' : 'Offline'}
+              {online ? t('driver.online') : t('driver.offline')}
             </Badge>
           </div>
         )}
@@ -215,7 +216,7 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                     </p>
                   </div>
                   <Badge className={cn('shrink-0 rounded-lg font-normal', statusColor(effectiveStatus))}>
-                    {effectiveStatus.replace(/_/g, ' ')}
+                    {statusLabel(effectiveStatus)}
                   </Badge>
                 </div>
 
@@ -223,13 +224,15 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                   <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
                     <span>
-                      {assignment?.assignedQuantity ?? activeJob.totalQuantity} boxes ·{' '}
-                      {Math.round(assignment?.assignedWeight ?? activeJob.cargoWeight)} kg
+                      {interpolate(t('driver.boxesWeight'), {
+                        boxes: assignment?.assignedQuantity ?? activeJob.totalQuantity,
+                        weight: Math.round(assignment?.assignedWeight ?? activeJob.cargoWeight),
+                      })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
                     <AppLogo size="sm" />
-                    <span>{truckLabel}</span>
+                    <span>{assignedTruckNo}</span>
                   </div>
                 </div>
 
@@ -268,7 +271,7 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                   <p className="text-sm text-muted-foreground">{step.hint}</p>
                   {pendingCount > 0 && (
                     <p className="text-xs text-amber-700">
-                      {pendingCount} action(s) queued — will sync when online.
+                      {interpolate(t('driver.actionsQueued'), { count: pendingCount })}
                     </p>
                   )}
                   <Button
@@ -280,7 +283,7 @@ export function DriverActiveJobClient({ data }: { data: any }) {
                   </Button>
                   {(step as { needsQr?: boolean }).needsQr && (
                     <p className="text-center text-xs text-muted-foreground">
-                      Complete customer QR scan below first.
+                      {t('driver.completeQrFirst')}
                     </p>
                   )}
                   {canReject && (

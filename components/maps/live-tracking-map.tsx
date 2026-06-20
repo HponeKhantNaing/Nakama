@@ -6,6 +6,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { LatLng } from '@/lib/tms/routing';
 import { formatEta } from '@/lib/tms/routing';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 const truckIcon = L.divIcon({
   html: `<div style="background:#41558A;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:18px">🚛</div>`,
@@ -83,6 +85,7 @@ function TruckMarker({
   remainingKm: number;
   etaMinutes: number;
 }) {
+  const { t, statusLabel } = useTranslation();
   const map = useMap();
   const markerRef = useRef<L.Marker | null>(null);
   const [ready, setReady] = useState(false);
@@ -121,13 +124,13 @@ function TruckMarker({
       icon={truckIcon}
     >
       <Popup>
-        <strong>{status}</strong>
+        <strong>{statusLabel(status)}</strong>
         <br />
-        {progressPercent}% complete
+        {interpolate(t('map.truckProgress'), { percent: progressPercent })}
         <br />
-        {remainingKm.toFixed(1)} km remaining
+        {interpolate(t('map.remainingKm'), { km: remainingKm.toFixed(1) })}
         <br />
-        ETA: {formatEta(etaMinutes)}
+        {t('delivery.eta')}: {formatEta(etaMinutes)}
       </Popup>
     </Marker>
   );
@@ -156,6 +159,7 @@ export function LiveTrackingMap({
   status = 'Driving',
   height = '480px',
 }: LiveTrackingMapProps) {
+  const { t, statusLabel } = useTranslation();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -186,7 +190,7 @@ export function LiveTrackingMap({
         className="flex items-center justify-center rounded-2xl bg-muted/30 text-sm text-muted-foreground"
         style={{ height }}
       >
-        Loading map...
+        {t('delivery.loadingMap')}
       </div>
     );
   }
@@ -207,10 +211,10 @@ export function LiveTrackingMap({
         />
         <FitBounds points={allPoints} />
         <Marker position={[origin.lat, origin.lng]} icon={originIcon}>
-          <Popup>Origin (Warehouse)</Popup>
+          <Popup>{t('map.originPopup')}</Popup>
         </Marker>
         <Marker position={[destination.lat, destination.lng]} icon={destIcon}>
-          <Popup>Destination (Customer)</Popup>
+          <Popup>{t('map.destinationPopup')}</Popup>
         </Marker>
         {current && polyline.length >= 2 && (
           <TruckMarker
@@ -236,20 +240,22 @@ export function LiveTrackingMap({
       {/* Responsive map footer: wraps metrics instead of overflowing on small driver screens. */}
       <div className="grid shrink-0 grid-cols-2 gap-3 border-t bg-white px-4 py-3 text-sm sm:grid-cols-4 sm:px-5">
         <div>
-          <p className="text-xs text-muted-foreground">Progress</p>
+          <p className="text-xs text-muted-foreground">{t('delivery.progress')}</p>
           <p className="text-lg font-bold text-primary">{progressPercent}%</p>
         </div>
         <div className="sm:text-center">
-          <p className="text-xs text-muted-foreground">Status</p>
-          <p className="text-sm font-semibold">{status}</p>
+          <p className="text-xs text-muted-foreground">{t('table.status')}</p>
+          <p className="text-sm font-semibold">{statusLabel(status)}</p>
         </div>
         <div className="sm:text-right">
-          <p className="text-xs text-muted-foreground">ETA</p>
+          <p className="text-xs text-muted-foreground">{t('delivery.eta')}</p>
           <p className="text-lg font-bold">{formatEta(etaMinutes)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Remaining</p>
-          <p className="text-sm font-semibold">{remainingKm.toFixed(1)} km</p>
+          <p className="text-xs text-muted-foreground">{t('calendar.remaining')}</p>
+          <p className="text-sm font-semibold">
+            {interpolate(t('map.remainingKm'), { km: remainingKm.toFixed(1) })}
+          </p>
         </div>
       </div>
     </div>

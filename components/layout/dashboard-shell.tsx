@@ -90,7 +90,7 @@ export function DashboardShell({ titleKey, navItems, children }: DashboardShellP
             type="button"
             className="rounded-lg p-2 text-sidebar-muted hover:bg-black/5 hover:text-sidebar-foreground lg:hidden"
             onClick={() => setSidebarOpen((open) => !open)}
-            aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+            aria-label={sidebarOpen ? t('common.closeMenu') : t('common.openMenu')}
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -123,7 +123,7 @@ export function DashboardShell({ titleKey, navItems, children }: DashboardShellP
       {sidebarOpen && (
         <button
           type="button"
-          aria-label="Close navigation"
+          aria-label={t('common.closeNav')}
           className="fixed inset-x-0 bottom-0 top-14 z-40 bg-black/50 sm:top-16 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />

@@ -5,22 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Calendar, dateFnsLocalizer, Views, type Event } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { enUS } from 'date-fns/locale';
+import { enUS, ja } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { updateDriverScheduleTimes } from '@/app/actions/yokomochi';
+import { useTranslation } from '@/lib/i18n/context';
 
 type CalendarEvent = Event & { id: string; resourceId?: string };
 const DnDCalendar = withDragAndDrop<CalendarEvent, { resourceId: string; resourceTitle: string }>(Calendar);
-
-const locales = { 'en-US': enUS };
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
 
 type Driver = { id: string; name: string };
 type Schedule = {
@@ -45,7 +37,20 @@ export function DailyDriverResourceCalendar({
   schedules: Schedule[];
 }) {
   const router = useRouter();
+  const { locale } = useTranslation();
   const [isPending, startTransition] = useTransition();
+
+  const localizer = useMemo(
+    () =>
+      dateFnsLocalizer({
+        format,
+        parse,
+        startOfWeek,
+        getDay,
+        locales: locale === 'ja' ? { ja } : { 'en-US': enUS },
+      }),
+    [locale]
+  );
 
   const dayStart = useMemo(() => new Date(`${date}T08:00:00`), [date]);
   const dayEnd = useMemo(() => new Date(`${date}T18:00:00`), [date]);
@@ -115,6 +120,7 @@ export function DailyDriverResourceCalendar({
       `}</style>
       <DnDCalendar
         localizer={localizer}
+        culture={locale === 'ja' ? 'ja' : 'en-US'}
         events={events}
         defaultView={Views.DAY}
         views={[Views.DAY]}
@@ -132,6 +138,7 @@ export function DailyDriverResourceCalendar({
         onEventResize={onEventResize}
         style={{ height: 520 }}
         toolbar={false}
-      />    </div>
+      />
+    </div>
   );
 }

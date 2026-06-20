@@ -151,7 +151,7 @@ export function DriverTimelineScheduler({
         label: `Trip`,
       });
       if (result && 'success' in result && !result.success) {
-        setError(result.error ?? 'Failed to assign');
+        setError(result.error ?? t('warehouse.assignFailed'));
         return;
       }
       setAssignDeliveryTimes((prev) => (prev > 1 ? prev - 1 : 1));
@@ -212,7 +212,7 @@ export function DriverTimelineScheduler({
               value={selectedTrip}
               onChange={(e) => setSelectedTrip(e.target.value)}
             >
-              <option value="">Trip</option>
+              <option value="">{t('warehouse.selectTrip')}</option>
               {unassignedTrips.map((trip) => (
                 <option key={trip.id} value={trip.id}>
                   {trip.tripCode} ({trip.pallets}p)
@@ -227,7 +227,7 @@ export function DriverTimelineScheduler({
                 setSelectedTruck('');
               }}
             >
-              <option value="">Driver</option>
+              <option value="">{t('shinwa.selectDriver')}</option>
               {driversWithSlots.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -240,7 +240,7 @@ export function DriverTimelineScheduler({
               disabled={!selectedDriver}
               onChange={(e) => setSelectedTruck(e.target.value)}
             >
-              <option value="">Truck</option>
+              <option value="">{t('shinwa.selectVehicle')}</option>
               {availableTrucks.map((tr) => (
                 <option key={tr.id} value={tr.id}>
                   {tr.truckNo ?? tr.truckNumber} ({getTruckPalletLimit(tr)}P)

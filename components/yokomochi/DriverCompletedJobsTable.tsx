@@ -1,10 +1,6 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
-import { getYokomochiVehicleLabel } from '@/lib/yokomochi/vehicle-capacity';
-import type { TruckType } from '@prisma/client';
-import { formatDriverTaskStatus } from '@/lib/yokomochi/delivery-status';
 import { useTranslation } from '@/lib/i18n/context';
 
 export type DriverCompletedJobRow = {
@@ -28,12 +24,12 @@ export type DriverCompletedJobRow = {
   truck: { truckNo: string | null; plateNumber: string; truckType: string } | null;
 };
 
-function formatTimestamp(value: Date | null | undefined) {
-  return value ? formatDate(value) : '—';
-}
-
 export function DriverCompletedJobsTable({ rows }: { rows: DriverCompletedJobRow[] }) {
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel, truckLabel } = useTranslation();
+
+  function formatTimestamp(value: Date | null | undefined) {
+    return value ? formatDate(value) : '—';
+  }
 
   if (rows.length === 0) {
     return (
@@ -112,12 +108,12 @@ export function DriverCompletedJobsTable({ rows }: { rows: DriverCompletedJobRow
                 <td className="border-r border-border/30 px-3 py-2 text-right tabular-nums">{row.pallets}</td>
                 <td className="border-r border-border/30 px-3 py-2 text-xs">
                   {row.truck
-                    ? `${row.truck.truckNo ?? row.truck.plateNumber} · ${getYokomochiVehicleLabel(row.truck.truckType as TruckType)}`
+                    ? `${row.truck.truckNo ?? row.truck.plateNumber} · ${truckLabel(row.truck.truckType)}`
                     : '—'}
                 </td>
                 <td className="border-r border-border/30 px-3 py-2">
                   <Badge variant="outline" className="text-[10px]">
-                    {formatDriverTaskStatus(row.status)}
+                    {statusLabel(row.status)}
                   </Badge>
                 </td>
                 <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">

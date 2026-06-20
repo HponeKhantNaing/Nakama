@@ -149,7 +149,7 @@ export function CarrierResponseForm({
       </div>
       <div className="space-y-1 sm:col-span-2">
         <Label htmlFor={`driverinfo-${requestId}`}>{t('carrier.driverInfo')}</Label>
-        <Input id={`driverinfo-${requestId}`} name="driverInfo" placeholder="山田, 鈴木" />
+        <Input id={`driverinfo-${requestId}`} name="driverInfo" placeholder={t('carrier.driverInfoPlaceholder')} />
       </div>
       {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
       <div className="sm:col-span-2">

@@ -623,6 +623,7 @@ export async function getYokomochiDeliveryTracking() {
           driverPhone: task.driver.phone,
           driverEmail: task.driver.user?.email ?? null,
           vehicleLabel: truck ? getYokomochiVehicleLabel(truck.truckType) : null,
+          truckType: truck?.truckType ?? null,
           plateNumber: truck?.plateNumber ?? null,
           taskStatus: task.status,
           tripStatus: trip.status,

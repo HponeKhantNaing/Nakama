@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { sendNegotiationChatMessage } from '@/app/actions/negotiation-chat';
-import { formatDate } from '@/lib/utils';
 import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
 import { Send } from 'lucide-react';
@@ -30,7 +29,7 @@ export function NegotiationChatPanel({
   viewerRole: 'MARUICHI_STAFF' | 'FACTORY_STAFF';
   onMessagesChange?: (messages: ChatMessage[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [text, setText] = useState('');
   const [isPending, startTransition] = useTransition();

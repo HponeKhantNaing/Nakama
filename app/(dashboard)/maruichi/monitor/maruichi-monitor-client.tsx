@@ -8,10 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
 import { useTranslation } from '@/lib/i18n/context';
-import { statusColor, formatDate } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import { statusColor, cn } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
 import { decodePolyline } from '@/lib/tms/routing';
-import type { TranslationKey } from '@/lib/i18n';
 
 const POLL_MS = 5000;
 
@@ -117,7 +116,7 @@ export function MaruichiMonitorClient({
   filter: 'today' | 'in_transit' | 'delivered';
 }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel } = useTranslation();
   const [filter, setFilter] = useState(initialFilter);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialDeliveries[0]?.id ?? null
@@ -135,12 +134,6 @@ export function MaruichiMonitorClient({
     selected?.handlerCompany?.name ??
     selected?.subContractAssignment?.subcontractor?.name ??
     '-';
-
-  function statusLabel(status: string): string {
-    const key = `status.${status}` as TranslationKey;
-    const translated = t(key);
-    return translated === key ? status : translated;
-  }
 
   return (
     <DashboardShell titleKey="dashboard.maruichi" navItems={navItems}>
@@ -193,7 +186,7 @@ export function MaruichiMonitorClient({
                       {d.origin} → {d.destination}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Carrier: {d.handlerCompany?.name ?? d.subContractAssignment?.subcontractor?.name ?? '-'}
+                      {t('monitor.carrier')}: {d.handlerCompany?.name ?? d.subContractAssignment?.subcontractor?.name ?? '-'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {d.totalQuantity} {t('form.boxes')}
@@ -230,7 +223,7 @@ export function MaruichiMonitorClient({
                 <Card>
                   <CardContent className="grid gap-4 p-4 md:grid-cols-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">Carrier</p>
+                      <p className="text-xs text-muted-foreground">{t('monitor.carrier')}</p>
                       <p className="font-semibold">{carrierName}</p>
                     </div>
                     <div>
@@ -242,10 +235,10 @@ export function MaruichiMonitorClient({
                       <p className="font-semibold">{tracking.truckNo ?? '-'}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">ETA</p>
+                      <p className="text-xs text-muted-foreground">{t('monitor.eta')}</p>
                       <p className="font-semibold">
                         {tracking.etaMinutes != null
-                          ? `${tracking.etaMinutes} min`
+                          ? interpolate(t('monitor.etaMinutes'), { minutes: tracking.etaMinutes })
                           : selected.eta
                             ? formatDate(selected.eta)
                             : '-'}

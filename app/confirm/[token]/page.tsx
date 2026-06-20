@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { CheckCircle, Package, User } from 'lucide-react';
 import { AppLogo } from '@/components/ui/app-logo';
+import { LanguageToggle } from '@/components/ui/language-toggle';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 interface ConfirmData {
   requestNo: string;
@@ -20,6 +23,7 @@ interface ConfirmData {
 }
 
 export default function ConfirmPage() {
+  const { t, formatDate } = useTranslation();
   const params = useParams();
   const token = params.token as string;
   const [data, setData] = useState<ConfirmData | null>(null);
@@ -58,7 +62,7 @@ export default function ConfirmPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">読み込み中... / Loading...</p>
+        <p className="text-muted-foreground">{t('confirm.loading')}</p>
       </div>
     );
   }
@@ -75,11 +79,14 @@ export default function ConfirmPage() {
 
   if (confirmed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="absolute right-4 top-4">
+          <LanguageToggle />
+        </div>
         <Card className="max-w-md rounded-3xl text-center shadow-soft">
           <CardContent className="flex flex-col items-center py-12">
             <CheckCircle className="mb-4 h-16 w-16 text-emerald-500" />
-            <h1 className="text-xl font-bold">配送確認完了 / Delivery Confirmed</h1>
+            <h1 className="text-xl font-bold">{t('confirm.confirmedTitle')}</h1>
             <p className="mt-2 text-sm text-muted-foreground">{data?.requestNo}</p>
           </CardContent>
         </Card>
@@ -88,18 +95,23 @@ export default function ConfirmPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="absolute right-4 top-4">
+        <LanguageToggle />
+      </div>
       <Card className="w-full max-w-lg rounded-3xl shadow-soft">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
             <Package className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle>配送確認 / Delivery Confirmation</CardTitle>
-          <p className="text-sm text-muted-foreground">注文番号 / Order: {data?.requestNo}</p>
+          <CardTitle>{t('confirm.title')}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            {interpolate(t('confirm.orderNoLabel'), { orderNo: data?.requestNo ?? '' })}
+          </p>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="rounded-xl bg-muted/40 p-4 space-y-2">
-            <p className="text-xs text-muted-foreground">お届け先 / Customer</p>
+          <div className="space-y-2 rounded-xl bg-muted/40 p-4">
+            <p className="text-xs text-muted-foreground">{t('confirm.customer')}</p>
             <p className="font-semibold">{data?.customer}</p>
             {data?.driver && (
               <div className="flex items-center gap-2 text-sm">
@@ -115,13 +127,13 @@ export default function ConfirmPage() {
             )}
             {data?.arrivedAt && (
               <p className="text-xs text-muted-foreground">
-                到着時刻 / Arrived: {new Date(data.arrivedAt).toLocaleString('ja-JP')}
+                {t('confirm.arrivedAt')}: {formatDate(data.arrivedAt)}
               </p>
             )}
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-semibold">配送品目 / Products</p>
+            <p className="mb-2 text-sm font-semibold">{t('confirm.products')}</p>
             <div className="space-y-2">
               {data?.items.map((item, i) => (
                 <div
@@ -140,11 +152,11 @@ export default function ConfirmPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>確認者名 / Your Name</Label>
+            <Label>{t('confirm.yourName')}</Label>
             <Input
               value={approvedBy}
               onChange={(e) => setApprovedBy(e.target.value)}
-              placeholder="山田 太郎"
+              placeholder={t('confirm.namePlaceholder')}
               required
             />
           </div>
@@ -154,7 +166,7 @@ export default function ConfirmPage() {
             disabled={!approvedBy || submitting}
             onClick={handleApprove}
           >
-            {submitting ? '確認中...' : '配送を承認 / Approve Delivery'}
+            {submitting ? t('confirm.submitting') : t('confirm.approveDelivery')}
           </Button>
         </CardContent>
       </Card>

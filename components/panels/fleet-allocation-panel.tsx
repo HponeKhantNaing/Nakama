@@ -126,7 +126,7 @@ export function FleetAllocationPanel({
       if (result.success && result.data) {
         setPlan(result.data as typeof plan);
       } else {
-        setError(result.error ?? 'Failed to compute plan');
+        setError(result.error ?? t('fleet.computeFailed'));
       }
     });
   }

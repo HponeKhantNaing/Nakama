@@ -67,7 +67,7 @@ interface DriverJobCardProps {
 
 export function DriverJobCard({ job }: DriverJobCardProps) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, formatDate } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [roadRoute, setRoadRoute] = useState<LatLng[] | null>(null);

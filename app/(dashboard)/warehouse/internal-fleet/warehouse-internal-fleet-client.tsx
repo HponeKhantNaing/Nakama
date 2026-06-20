@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 
 import { Label } from '@/components/ui/label';
 import { useTranslation } from '@/lib/i18n/context';
+import { interpolate } from '@/lib/i18n';
 
 import { ArrowRight } from 'lucide-react';
 
@@ -136,7 +137,7 @@ export function WarehouseInternalFleetClient({
 
         <p className="text-sm text-muted-foreground">
 
-          10t truck = 16 pallets/trip (256 boxes). Assign 小野 · 浅川 by delivery date.
+          {t('warehouse.internalFleetDesc')}
 
         </p>
 
@@ -168,7 +169,7 @@ export function WarehouseInternalFleetClient({
             href="/warehouse/external-carrier"
             className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
           >
-            Send remaining to 建会社
+            {t('warehouse.sendToExternalCarrier')}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
 
@@ -178,7 +179,7 @@ export function WarehouseInternalFleetClient({
 
         {loadingSchedule && (
 
-          <p className="text-xs text-muted-foreground">Loading schedule for {date}…</p>
+          <p className="text-xs text-muted-foreground">{interpolate(t('warehouse.loadingSchedule'), { date })}</p>
 
         )}
 
@@ -210,15 +211,15 @@ export function WarehouseInternalFleetClient({
 
           <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
 
-            <p className="font-medium text-foreground">No trips for {date}</p>
+            <p className="font-medium text-foreground">{interpolate(t('warehouse.noTripsForDate'), { date })}</p>
 
-            <p className="mt-2 text-xs">Approve factory negotiation to create delivery schedules, then pick the delivery date above.</p>
+            <p className="mt-2 text-xs">{t('warehouse.noTripsHint')}</p>
 
             <Link
               href="/warehouse/negotiations"
               className="mt-4 inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
-              Negotiations へ
+              {t('warehouse.goNegotiations')}
             </Link>
 
           </div>

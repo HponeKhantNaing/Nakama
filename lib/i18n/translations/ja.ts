@@ -656,6 +656,113 @@ const ja: Record<TranslationKey, string> = {
   'map.origin': '出発地',
   'map.destination': '配送先',
   'map.current': '現在地',
+  'map.originPopup': '出発地（倉庫）',
+  'map.destinationPopup': '配送先（顧客）',
+  'map.remainingKm': '{km} km',
+  'map.mapboxTokenHint': 'ライブ地図を有効にするには NEXT_PUBLIC_MAPBOX_TOKEN を設定してください',
+  'map.truckProgress': '{percent}% 完了',
+
+  'common.openMenu': 'メニューを開く',
+  'common.closeMenu': 'メニューを閉じる',
+  'common.closeNav': 'ナビゲーションを閉じる',
+  'common.remove': '削除',
+
+  'scan.tripNotFound':
+    'トリップが見つかりません。ドライバーQR下のトリップコードをスキャンしてください（例: YM-20260619-XXXXX-S1-T1）。',
+  'scan.tripPlaceholder': 'YM-20260619-XXXXX-S1-T1',
+  'scan.notReady': '倉庫スキャンの準備ができていません — ドライバーステータス: {status}',
+  'scan.verificationFailed': '確認に失敗しました',
+
+  'carrier.capacity10t': '10t: 16パレット = 256箱 / 便',
+  'carrier.capacity4t': '4t: 5パレット = 80箱 / 便',
+  'carrier.capacityVan': 'バン: 5箱 / 便',
+  'carrier.fleetPlan': '配車計画',
+  'carrier.respondedWith':
+    '最大 {trucks} 台 / {drivers} 名で {trips} 便に回答済み。箱数が不足する場合は下で車両を追加してください。',
+  'carrier.driverNamePlaceholder': '山田 太郎',
+  'carrier.driverEmailPlaceholder': 'driver@shinwa.jp',
+  'carrier.licensePlaceholder': 'DL-123456',
+  'carrier.truckNumberPlaceholder': 'SHINWA-10T-01',
+  'carrier.platePlaceholder': '品川500あ1234',
+  'carrier.driverInfoPlaceholder': '山田, 鈴木',
+
+  'subcontract.noAssignments': '下請け割当はまだありません。建会社容量不足時に表示されます。',
+  'subcontract.tripsAssigned': '{count} 便 割当',
+
+  'confirm.loading': '読み込み中...',
+  'confirm.confirmedTitle': '配送確認完了',
+  'confirm.title': '配送確認',
+  'confirm.orderNo': '注文番号',
+  'confirm.orderNoLabel': '注文番号: {orderNo}',
+  'confirm.customer': 'お届け先',
+  'confirm.arrivedAt': '到着時刻',
+  'confirm.products': '配送品目',
+  'confirm.yourName': '確認者名',
+  'confirm.namePlaceholder': '山田 太郎',
+  'confirm.comment': 'コメント（任意）',
+  'confirm.commentPlaceholder': '特記事項',
+  'confirm.submitting': '確認中...',
+  'confirm.approveDelivery': '配送を承認',
+  'confirm.deliveredItems': '配送品目',
+
+  'qrModal.title': '顧客QR — {requestNo}',
+  'qrModal.confirmed': '顧客確認済',
+  'qrModal.waiting': '顧客スキャン待ち',
+  'qrModal.hint': 'お客様にスキャンして配送確認をお願いしてください。',
+  'qrModal.notGenerated': 'QRはまだ生成されていません。',
+  'qrModal.alt': '配送QR',
+
+  'monitor.carrier': '配送会社',
+  'monitor.eta': '到着予定',
+  'monitor.etaMinutes': '{minutes} 分',
+
+  'driver.online': 'オンライン',
+  'driver.offline': 'オフライン',
+  'driver.completeQrFirst': '先に下の顧客QRスキャンを完了してください。',
+  'driver.actionsQueued': '{count} 件のアクションがキューに入っています — オンライン時に同期されます。',
+  'driver.boxesWeight': '{boxes} 箱 · {weight} kg',
+  'driver.defaultDriver': 'ドライバー',
+
+  'driverHeader.truck': '車両',
+  'driverHeader.type': 'タイプ',
+  'driverHeader.license': '免許',
+  'driverHeader.rating': '評価',
+
+  'map.trackRouteTitle': 'ルート追跡 — {requestNo} · {origin} → {destination}',
+
+  'carrier.noCompletedTrips': '完了した建会社便はまだありません。',
+
+  'subcontract.carrierPageDesc':
+    '自社フリート容量が不足した場合に下請けへ委託された便です。',
+  'subcontract.warehousePageDesc':
+    '建会社の対応能力が依頼便数より少ない場合に自動作成されます。',
+
+  'warehouse.assignFailed': '割当に失敗しました',
+  'fleet.computeFailed': '配車計画の計算に失敗しました',
+
+  'shinwa.liveGpsTracking': '{requestNo} — ライブGPS追跡',
+
+  'status.DRIVING': '運転中',
+  'status.ON_DELIVERY': '配送中',
+  'status.AVAILABLE': '待機中',
+  'status.ONLINE': 'オンライン',
+  'status.OFFLINE': 'オフライン',
+  'status.BREAK': '休憩中',
+
+  'status.ARRIVED_FACTORY': '工場到着',
+  'status.LOADED_CARGO': '積込完了',
+  'status.ARRIVED_WAREHOUSE': '倉庫到着',
+  'status.CARRIER_ASSIGNED': '建会社割当',
+  'status.CARRIER_PENDING': '建会社待ち',
+  'status.FACTORY_PENDING': '工場回答待ち',
+  'status.NEGOTIATING': '交渉中',
+  'status.TRIPS_CALCULATED': '便数計算済',
+  'status.INTERNAL_SCHEDULING': '社内スケジュール',
+  'status.AWAITING_VERIFICATION': '到着確認待ち',
+  'status.COMPLETED': '完了',
+  'status.FULL': '一括',
+  'status.PARTIAL': '分納',
+  'status.REJECTED': '拒否',
 };
 
 export default ja;

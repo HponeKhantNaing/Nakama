@@ -58,7 +58,7 @@ export function DriverProgressCard({
   canCancel?: boolean;
   isCancelling?: boolean;
 }) {
-  const { t, statusLabel } = useTranslation();
+  const { t, statusLabel, truckLabel } = useTranslation();
   const isCancelled = assignment.status === 'CANCELLED';
   const driverName =
     assignment.driver?.name ??
@@ -94,7 +94,7 @@ export function DriverProgressCard({
             <div>
               <p className="font-semibold">{driverName}</p>
               <p className="text-xs text-muted-foreground">
-                {truckNo} · {truckType.replace(/_/g, ' ')}
+                {truckNo} · {truckType !== '—' ? truckLabel(truckType) : '—'}
               </p>
             </div>
           </div>

@@ -1,8 +1,6 @@
 'use client';
 
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
-import { getYokomochiVehicleLabel } from '@/lib/yokomochi/vehicle-capacity';
 import { useTranslation } from '@/lib/i18n/context';
 import type { CarrierAcceptedJobGroup } from '@/app/actions/carrier-fleet';
 
@@ -30,7 +28,7 @@ export function collectAssignedTripRows(groups: CarrierAcceptedJobGroup[]): Assi
 }
 
 export function CarrierAssignedTripsTable({ groups }: { groups: CarrierAcceptedJobGroup[] }) {
-  const { t } = useTranslation();
+  const { t, formatDate, statusLabel, truckLabel } = useTranslation();
   const rows = collectAssignedTripRows(groups);
 
   if (rows.length === 0) {
@@ -124,7 +122,7 @@ export function CarrierAssignedTripsTable({ groups }: { groups: CarrierAcceptedJ
                       {truck?.truckNo ?? truck?.plateNumber ?? '—'}
                     </td>
                     <td className="border-r border-border/30 px-3 py-2 text-xs">
-                      {truck ? getYokomochiVehicleLabel(truck.truckType) : '—'}
+                      {truck ? truckLabel(truck.truckType) : '—'}
                     </td>
                     <td className="border-r border-border/30 px-3 py-2 text-xs">
                       {truck?.plateNumber ?? '—'}
@@ -134,7 +132,7 @@ export function CarrierAssignedTripsTable({ groups }: { groups: CarrierAcceptedJ
                     </td>
                     <td className="border-r border-border/30 px-3 py-2">
                       <Badge variant="outline" className="text-[10px]">
-                        {task.status.replace(/_/g, ' ')}
+                        {statusLabel(task.status)}
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">

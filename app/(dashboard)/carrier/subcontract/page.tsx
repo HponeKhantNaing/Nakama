@@ -1,4 +1,5 @@
 import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell';
+import { TranslatedText } from '@/components/i18n/translated-text';
 import { SubcontractOverview } from '@/components/yokomochi/SubcontractOverview';
 import { getCarrierSubcontractTrips } from '@/app/actions/yokomochi';
 import { carrierNavItems } from '@/lib/nav/yokomochi';
@@ -23,9 +24,7 @@ export default async function CarrierSubcontractPage() {
     <DashboardShell titleKey="dashboard.carrier" navItems={carrierNavItems}>
       <div className="space-y-6">
         <PageHeader titleKey="nav.subcontract" />
-        <p className="text-sm text-muted-foreground">
-          Trips delegated to subcontractors when your fleet capacity is insufficient.
-        </p>
+        <TranslatedText messageKey="subcontract.carrierPageDesc" className="text-sm text-muted-foreground" />
         <SubcontractOverview assignments={mapped as any} />
       </div>
     </DashboardShell>

@@ -9,6 +9,8 @@ import {
 } from '@/components/ui/dialog';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
 import { decodePolyline } from '@/lib/tms/routing';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 type LatLng = { lat: number; lng: number };
 
@@ -47,6 +49,8 @@ export function MapTrackingModal({
   etaMinutes: number | null;
   status: string;
 }) {
+  const { t, statusLabel } = useTranslation();
+
   const o = useMemo(
     () => ({ lat: originLat ?? 35.6762, lng: originLng ?? 139.6503 }),
     [originLat, originLng]
@@ -81,7 +85,7 @@ export function MapTrackingModal({
       <DialogContent className="max-w-4xl rounded-2xl">
         <DialogHeader>
           <DialogTitle>
-            Track Route — {requestNo} · {origin} → {destination}
+            {interpolate(t('map.trackRouteTitle'), { requestNo, origin, destination })}
           </DialogTitle>
         </DialogHeader>
         {open && route.length >= 2 ? (
@@ -101,4 +105,3 @@ export function MapTrackingModal({
     </Dialog>
   );
 }
-

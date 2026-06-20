@@ -5,6 +5,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { LatLng } from '@/lib/tms/routing';
 import { formatEta } from '@/lib/tms/routing';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
@@ -31,10 +33,14 @@ export function MapboxTrackingMap({
   status = 'In Transit',
   height = '480px',
 }: MapboxTrackingMapProps) {
+  const { t, statusLabel } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const truckMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  const originLabel = t('map.originPopup');
+  const destinationLabel = t('map.destinationPopup');
 
   useEffect(() => {
     setMounted(true);
@@ -81,12 +87,12 @@ export function MapboxTrackingMap({
 
       new mapboxgl.Marker({ color: '#34D399' })
         .setLngLat([origin.lng, origin.lat])
-        .setPopup(new mapboxgl.Popup().setHTML('<strong>Warehouse</strong>'))
+        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${originLabel}</strong>`))
         .addTo(map);
 
       new mapboxgl.Marker({ color: '#EF4444' })
         .setLngLat([destination.lng, destination.lat])
-        .setPopup(new mapboxgl.Popup().setHTML('<strong>Destination</strong>'))
+        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${destinationLabel}</strong>`))
         .addTo(map);
 
       const bounds = new mapboxgl.LngLatBounds();
@@ -103,7 +109,7 @@ export function MapboxTrackingMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [mounted, origin, destination, polylineCoords]);
+  }, [mounted, origin, destination, polylineCoords, originLabel, destinationLabel]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -144,7 +150,7 @@ export function MapboxTrackingMap({
         className="flex items-center justify-center rounded-2xl border bg-muted/30 text-sm text-muted-foreground"
         style={{ height }}
       >
-        Set NEXT_PUBLIC_MAPBOX_TOKEN to enable live map
+        {t('map.mapboxTokenHint')}
       </div>
     );
   }
@@ -155,7 +161,7 @@ export function MapboxTrackingMap({
         className="flex items-center justify-center rounded-2xl bg-muted/30 text-sm text-muted-foreground"
         style={{ height }}
       >
-        Loading map...
+        {t('delivery.loadingMap')}
       </div>
     );
   }
@@ -163,10 +169,9 @@ export function MapboxTrackingMap({
   return (
     <div className="flex flex-col overflow-hidden rounded-xl shadow-soft" style={{ height }}>
       <div ref={containerRef} className="min-h-0 flex-1" style={{ width: '100%' }} />
-      {/* Responsive map footer: same layout as the Leaflet fallback map. */}
       <div className="grid shrink-0 grid-cols-2 gap-3 border-t bg-white px-4 py-3 text-sm sm:grid-cols-4 sm:px-5">
         <div>
-          <p className="text-xs text-muted-foreground">Progress</p>
+          <p className="text-xs text-muted-foreground">{t('delivery.progress')}</p>
           <div className="mt-1 h-2 w-24 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full rounded-full bg-primary transition-all duration-500"
@@ -176,16 +181,18 @@ export function MapboxTrackingMap({
           <p className="mt-1 text-lg font-bold text-primary">{progressPercent}%</p>
         </div>
         <div className="sm:text-center">
-          <p className="text-xs text-muted-foreground">Status</p>
-          <p className="text-sm font-semibold">{status}</p>
+          <p className="text-xs text-muted-foreground">{t('table.status')}</p>
+          <p className="text-sm font-semibold">{statusLabel(status)}</p>
         </div>
         <div className="sm:text-right">
-          <p className="text-xs text-muted-foreground">ETA</p>
+          <p className="text-xs text-muted-foreground">{t('delivery.eta')}</p>
           <p className="text-lg font-bold">{formatEta(etaMinutes)}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-muted-foreground">Remaining</p>
-          <p className="text-sm font-semibold">{remainingKm.toFixed(1)} km</p>
+          <p className="text-xs text-muted-foreground">{t('calendar.remaining')}</p>
+          <p className="text-sm font-semibold">
+            {interpolate(t('map.remainingKm'), { km: remainingKm.toFixed(1) })}
+          </p>
         </div>
       </div>
     </div>
