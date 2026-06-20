@@ -12,6 +12,8 @@ import {
   lastRenegotiationAt,
 } from '@/lib/yokomochi/negotiation-chat-gate';
 import { toLocalDateString } from '@/lib/yokomochi/dates';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 const BOXES_PER_PALLET = 16;
 
@@ -51,6 +53,7 @@ export function FactoryAvailabilityForm({
   chatMessagesByOrder: Record<string, ChatMessage[]>;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState(orders[0]?.id ?? '');
   const [availableBoxes, setAvailableBoxes] = useState('');
   const [availableDate, setAvailableDate] = useState('');
@@ -101,18 +104,16 @@ export function FactoryAvailabilityForm({
     if (!selectedOrder) return;
     if (!factoryChatReady) {
       alert(
-        isRenegotiation
-          ? 'Reply in chat about the revised request before updating availability.'
-          : 'Reply in the negotiation chat before submitting availability to the warehouse.'
+        isRenegotiation ? t('factory.alertChatRenegotiate') : t('factory.alertChatInitial')
       );
       return;
     }
     if (status === 'PARTIAL' && !nextAvailableDate) {
-      alert('Next available date is required for partial delivery');
+      alert(t('factory.alertNextDateRequired'));
       return;
     }
     if (!availableDate) {
-      alert('Available date is required');
+      alert(t('factory.alertAvailableDateRequired'));
       return;
     }
 
@@ -128,7 +129,7 @@ export function FactoryAvailabilityForm({
         notes: '',
       });
       if (result && 'success' in result && !result.success) {
-        alert(result.error ?? 'Failed to submit response');
+        alert(result.error ?? t('factory.submitResponseFailed'));
         return;
       }
       router.refresh();
@@ -141,13 +142,10 @@ export function FactoryAvailabilityForm({
     <section className="space-y-4 rounded-xl border bg-white p-4">
       <div>
         <p className="text-sm font-semibold">
-          {isRenegotiation ? 'Revise availability (warehouse renegotiation)' : 'Step 1 — Negotiate with warehouse'}
+          {isRenegotiation ? t('factory.step1Renegotiate') : t('factory.step1Negotiate')}
         </p>
         <p className="text-xs text-muted-foreground">
-          Chat first, then submit updated boxes and dates.{' '}
-          {isRenegotiation
-            ? 'Warehouse asked for changes — send a new chat reply, then update your formal offer below.'
-            : 'Formal availability is locked until you send at least one chat message.'}
+          {isRenegotiation ? t('factory.step1RenegotiateDesc') : t('factory.step1NegotiateDesc')}
         </p>
       </div>
 
@@ -158,8 +156,9 @@ export function FactoryAvailabilityForm({
       >
         {orders.map((o) => (
           <option key={o.id} value={o.id}>
-            {o.orderNo} — {o.factoryRequest.requestedBoxes} boxes
-            {o.factoryNegotiation ? ' (renegotiation)' : ''}
+            {o.orderNo} — {o.factoryRequest.requestedBoxes}
+            {t('factory.boxesSuffix')}
+            {o.factoryNegotiation ? t('factory.renegotiationTag') : ''}
           </option>
         ))}
       </select>
@@ -178,31 +177,33 @@ export function FactoryAvailabilityForm({
 
           <div className="space-y-3">
             <p className="text-sm font-semibold">
-              {isRenegotiation ? 'Update formal offer to warehouse' : 'Step 2 — Submit availability to warehouse'}
+              {isRenegotiation ? t('factory.step2UpdateOffer') : t('factory.step2Submit')}
             </p>
             {isRenegotiation && selectedOrder.factoryNegotiation && (
               <p className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                Previous offer: {selectedOrder.factoryNegotiation.availableBoxes} boxes on{' '}
-                {toLocalDateString(selectedOrder.factoryNegotiation.availableDate)}
+                {interpolate(t('factory.previousOffer'), {
+                  boxes: selectedOrder.factoryNegotiation.availableBoxes,
+                  date: toLocalDateString(selectedOrder.factoryNegotiation.availableDate),
+                })}
                 {selectedOrder.factoryNegotiation.nextAvailableDate &&
-                  ` · remainder on ${toLocalDateString(selectedOrder.factoryNegotiation.nextAvailableDate)}`}
+                  interpolate(t('factory.remainderOn'), {
+                    date: toLocalDateString(selectedOrder.factoryNegotiation.nextAvailableDate),
+                  })}
               </p>
             )}
             {!factoryChatReady && (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                {isRenegotiation
-                  ? 'Send a chat reply about the revised request first, then update boxes and dates below.'
-                  : 'Send a chat message first, then submit boxes and dates below.'}
+                {isRenegotiation ? t('factory.chatFirstRenegotiate') : t('factory.chatFirstInitial')}
               </p>
             )}
 
             <div className="grid gap-3">
               <div>
-                <Label>Available Pallets</Label>
+                <Label>{t('factory.availablePallets')}</Label>
                 <Input type="number" readOnly value={availablePallets} />
               </div>
               <div>
-                <Label>Available Boxes</Label>
+                <Label>{t('factory.availableBoxes')}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -215,7 +216,7 @@ export function FactoryAvailabilityForm({
                 />
               </div>
               <div>
-                <Label>Available Date</Label>
+                <Label>{t('factory.availableDate')}</Label>
                 <Input
                   type="date"
                   required
@@ -225,7 +226,7 @@ export function FactoryAvailabilityForm({
                 />
               </div>
               <div>
-                <Label>Next delivery date (only if boxes &lt; requested)</Label>
+                <Label>{t('factory.nextDeliveryDate')}</Label>
                 <Input
                   type="date"
                   value={nextAvailableDate}
@@ -243,17 +244,26 @@ export function FactoryAvailabilityForm({
               >
                 {isPartialOffer ? (
                   <>
-                    <p className="font-semibold">Partial delivery (auto-detected)</p>
+                    <p className="font-semibold">{t('factory.partialDelivery')}</p>
                     <p>
-                      {availableBoxCount} boxes on {availableDate || '—'} · {remainingBoxes} boxes remaining
-                      {nextAvailableDate ? ` on ${nextAvailableDate}` : ' — set next date above'}
+                      {interpolate(t('factory.partialDeliveryDetail'), {
+                        available: availableBoxCount,
+                        date: availableDate || '—',
+                        remaining: remainingBoxes,
+                        nextDate: nextAvailableDate
+                          ? ` on ${nextAvailableDate}`
+                          : t('factory.setNextDateAbove'),
+                      })}
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="font-semibold">Full delivery (auto-detected)</p>
+                    <p className="font-semibold">{t('factory.fullDelivery')}</p>
                     <p>
-                      All {availableBoxCount || requestedBoxes} boxes on {availableDate || '—'}
+                      {interpolate(t('factory.fullDeliveryDetail'), {
+                        boxes: availableBoxCount || requestedBoxes,
+                        date: availableDate || '—',
+                      })}
                     </p>
                   </>
                 )}
@@ -265,7 +275,7 @@ export function FactoryAvailabilityForm({
                   disabled={isPending || !factoryChatReady || !availableDate || (isPartialOffer && !nextAvailableDate)}
                   onClick={submitOffer}
                 >
-                  Submit offer to warehouse
+                  {t('factory.submitOffer')}
                 </Button>
                 <Button
                   type="button"
@@ -273,7 +283,7 @@ export function FactoryAvailabilityForm({
                   disabled={isPending || !factoryChatReady}
                   onClick={() => respond('REJECTED')}
                 >
-                  Cannot fulfill
+                  {t('factory.cannotFulfill')}
                 </Button>
               </div>
             </div>

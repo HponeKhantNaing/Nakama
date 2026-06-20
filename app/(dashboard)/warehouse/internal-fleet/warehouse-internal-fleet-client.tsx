@@ -20,6 +20,7 @@ import { DailyDriverResourceCalendar } from '@/components/yokomochi/DailyDriverR
 import { Input } from '@/components/ui/input';
 
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/lib/i18n/context';
 
 import { ArrowRight } from 'lucide-react';
 
@@ -54,6 +55,8 @@ export function WarehouseInternalFleetClient({
 }) {
 
   const router = useRouter();
+
+  const { t } = useTranslation();
 
   const [date, setDate] = useState(initialDate);
 
@@ -143,7 +146,7 @@ export function WarehouseInternalFleetClient({
 
           <div className="space-y-1">
 
-            <Label htmlFor="schedule-date">Schedule date</Label>
+            <Label htmlFor="schedule-date">{t('warehouse.scheduleDate')}</Label>
 
             <Input
 

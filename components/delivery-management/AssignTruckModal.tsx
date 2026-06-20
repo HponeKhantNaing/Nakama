@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Truck = {
   id: string;
@@ -43,6 +45,7 @@ export function AssignTruckModal({
   drivers: Driver[];
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [truckId, setTruckId] = useState('');
@@ -51,7 +54,7 @@ export function AssignTruckModal({
   const [weight, setWeight] = useState<number>(Math.max(1, remainingWeight));
 
   const availableTrucks = useMemo(
-    () => trucks.filter((t) => t.status === 'AVAILABLE'),
+    () => trucks.filter((truck) => truck.status === 'AVAILABLE'),
     [trucks]
   );
   const availableDrivers = useMemo(
@@ -59,7 +62,7 @@ export function AssignTruckModal({
     [drivers]
   );
   const selectedTruck = useMemo(
-    () => availableTrucks.find((t) => t.id === truckId) ?? null,
+    () => availableTrucks.find((truck) => truck.id === truckId) ?? null,
     [availableTrucks, truckId]
   );
 
@@ -101,7 +104,7 @@ export function AssignTruckModal({
         onOpenChange(false);
         router.refresh();
       } else {
-        setError(result.error ?? 'Failed to assign');
+        setError(result.error ?? t('shinwa.assignFailed'));
       }
     });
   }
@@ -110,26 +113,27 @@ export function AssignTruckModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Manual Truck Assignment</DialogTitle>
+          <DialogTitle>{t('shinwa.manualTruckAssignment')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="space-y-2">
-            <Label>Truck</Label>
+            <Label>{t('table.vehicle')}</Label>
             <Select value={truckId} onChange={(e) => setTruckId(e.target.value)}>
-              <option value="">Select truck</option>
-              {availableTrucks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.truckNo} ({t.truckType}) — {t.maxBoxes} boxes, {t.capacityWeightKg}kg
+              <option value="">{t('shinwa.selectTruck')}</option>
+              {availableTrucks.map((truck) => (
+                <option key={truck.id} value={truck.id}>
+                  {truck.truckNo} ({truck.truckType}) — {truck.maxBoxes} {t('form.boxes')},{' '}
+                  {truck.capacityWeightKg}kg
                 </option>
               ))}
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label>Driver</Label>
+            <Label>{t('table.driver')}</Label>
             <Select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
-              <option value="">Select driver</option>
+              <option value="">{t('shinwa.selectDriver')}</option>
               {availableDrivers.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -140,7 +144,7 @@ export function AssignTruckModal({
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Assign Quantity (boxes)</Label>
+              <Label>{t('shinwa.assignQuantity')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -148,10 +152,12 @@ export function AssignTruckModal({
                 value={qty}
                 onChange={(e) => setQty(Number(e.target.value))}
               />
-              <p className="text-[11px] text-muted-foreground">Remaining: {remainingQuantity} boxes</p>
+              <p className="text-[11px] text-muted-foreground">
+                {interpolate(t('shinwa.remainingBoxesLabel'), { count: remainingQuantity })}
+              </p>
             </div>
             <div className="space-y-2">
-              <Label>Assign Weight (kg)</Label>
+              <Label>{t('shinwa.assignWeight')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -159,7 +165,9 @@ export function AssignTruckModal({
                 value={weight}
                 onChange={(e) => setWeight(Number(e.target.value))}
               />
-              <p className="text-[11px] text-muted-foreground">Remaining: {remainingWeight} kg</p>
+              <p className="text-[11px] text-muted-foreground">
+                {interpolate(t('shinwa.remainingWeightLabel'), { weight: remainingWeight })}
+              </p>
             </div>
           </div>
 
@@ -167,7 +175,7 @@ export function AssignTruckModal({
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -181,7 +189,7 @@ export function AssignTruckModal({
               }
               onClick={onSave}
             >
-              {isPending ? 'Saving...' : 'Save'}
+              {isPending ? t('common.saving') : t('common.save')}
             </Button>
           </div>
         </div>
@@ -189,4 +197,3 @@ export function AssignTruckModal({
     </Dialog>
   );
 }
-

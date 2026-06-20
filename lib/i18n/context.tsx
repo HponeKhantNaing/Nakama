@@ -8,7 +8,14 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { defaultLocale, getTranslation, type Locale, type TranslationKey } from './index';
+import {
+  defaultLocale,
+  formatLocaleDate,
+  getTranslation,
+  translateStatus,
+  type Locale,
+  type TranslationKey,
+} from './index';
 
 const STORAGE_KEY = 'mtms-locale';
 
@@ -16,6 +23,8 @@ interface LanguageContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: TranslationKey) => string;
+  formatDate: (date: Date | string | null | undefined) => string;
+  statusLabel: (status: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -47,7 +56,20 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [locale]
   );
 
-  const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
+  const formatDate = useCallback(
+    (date: Date | string | null | undefined) => formatLocaleDate(date, locale),
+    [locale]
+  );
+
+  const statusLabel = useCallback(
+    (status: string) => translateStatus(status, t),
+    [t]
+  );
+
+  const value = useMemo(
+    () => ({ locale, setLocale, t, formatDate, statusLabel }),
+    [locale, setLocale, t, formatDate, statusLabel]
+  );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

@@ -1,9 +1,8 @@
 'use client';
 
-import { cn, statusColor, formatDate } from '@/lib/utils';
+import { cn, statusColor } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/lib/i18n/context';
-import type { TranslationKey } from '@/lib/i18n';
 
 type RequestRow = {
   id: string;
@@ -29,13 +28,7 @@ interface StatusTableProps {
 }
 
 export function StatusTable({ requests, actions }: StatusTableProps) {
-  const { t } = useTranslation();
-
-  function statusLabel(status: string): string {
-    const key = `status.${status}` as TranslationKey;
-    const translated = t(key);
-    return translated === key ? status : translated;
-  }
+  const { t, formatDate, statusLabel } = useTranslation();
 
   if (requests.length === 0) {
     return (

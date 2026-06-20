@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatDate, statusColor } from '@/lib/utils';
+import { cn, statusColor } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Row = {
   id: string;
@@ -26,6 +27,7 @@ type Row = {
 };
 
 export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
+  const { t, formatDate, statusLabel } = useTranslation();
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -45,13 +47,13 @@ export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
       <CardContent className="space-y-3 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold">Completed Delivery History</p>
-            <p className="text-xs text-muted-foreground">Searchable list of your recent jobs.</p>
+            <p className="text-sm font-semibold">{t('delivery.completedHistoryTitle')}</p>
+            <p className="text-xs text-muted-foreground">{t('delivery.completedHistoryDesc')}</p>
           </div>
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search request / origin / destination..."
+            placeholder={t('delivery.searchJobsPlaceholder')}
             className="sm:w-[320px]"
           />
         </div>
@@ -60,14 +62,14 @@ export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">Request</th>
-                <th className="px-4 py-3">Pickup</th>
-                <th className="px-4 py-3">Destination</th>
-                <th className="px-4 py-3">Boxes</th>
-                <th className="px-4 py-3">Weight</th>
-                <th className="px-4 py-3">Delivered</th>
-                <th className="px-4 py-3">Confirmed</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">{t('table.request')}</th>
+                <th className="px-4 py-3">{t('table.pickup')}</th>
+                <th className="px-4 py-3">{t('table.destination')}</th>
+                <th className="px-4 py-3">{t('table.boxes')}</th>
+                <th className="px-4 py-3">{t('table.weight')}</th>
+                <th className="px-4 py-3">{t('table.delivered')}</th>
+                <th className="px-4 py-3">{t('table.confirmed')}</th>
+                <th className="px-4 py-3">{t('table.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -100,12 +102,12 @@ export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
                           confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-muted/40 text-muted-foreground'
                         )}
                       >
-                        {confirmed ? 'YES' : 'NO'}
+                        {confirmed ? t('common.yes') : t('common.no')}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <Badge className={cn('rounded-xl font-normal', statusColor(r.status))}>
-                        {r.status}
+                        {statusLabel(r.status)}
                       </Badge>
                     </td>
                   </tr>
@@ -114,7 +116,7 @@ export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    No rows found.
+                    {t('table.noRows')}
                   </td>
                 </tr>
               )}
@@ -125,4 +127,3 @@ export function CompletedDeliveryTable({ rows }: { rows: Row[] }) {
     </Card>
   );
 }
-

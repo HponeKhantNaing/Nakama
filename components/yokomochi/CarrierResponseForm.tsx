@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { submitCarrierResponse } from '@/app/actions/yokomochi';
 import { formatFleetTripPlan } from '@/lib/yokomochi/carrier-fleet-plan';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 function parsePositiveInt(raw: string, fallback: number): number {
   const trimmed = raw.trim();
@@ -23,6 +25,7 @@ export function CarrierResponseForm({
   suggestedTrips: number;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [availableTrips, setAvailableTrips] = useState(String(Math.max(1, suggestedTrips)));
   const [fleetCount, setFleetCount] = useState(
@@ -55,7 +58,7 @@ export function CarrierResponseForm({
         const trips = Math.max(1, parsePositiveInt(availableTrips, 1));
         const fleet = Math.max(1, parsePositiveInt(fleetCount, 1));
         if (trips > maxTrips) {
-          setError(`Available trips cannot exceed ${maxTrips}`);
+          setError(interpolate(t('carrier.tripsExceedMax'), { max: maxTrips }));
           return;
         }
         const fd = new FormData(e.currentTarget);
@@ -74,12 +77,12 @@ export function CarrierResponseForm({
             router.push('/carrier/accepted');
             return;
           }
-          setError(result.error ?? 'Failed to submit response');
+          setError(result.error ?? t('carrier.submitResponseFailed'));
         });
       }}
     >
       <div className="space-y-1">
-        <Label htmlFor={`trips-${requestId}`}>Available Trips</Label>
+        <Label htmlFor={`trips-${requestId}`}>{t('carrier.availableTrips')}</Label>
         <Input
           id={`trips-${requestId}`}
           type="text"
@@ -104,11 +107,11 @@ export function CarrierResponseForm({
           required
         />
         <p className="text-xs text-muted-foreground">
-          Min 1 · max {maxTrips} remaining trip{maxTrips !== 1 ? 's' : ''} (after internal fleet)
+          {interpolate(t('carrier.tripsMaxHint'), { max: maxTrips })}
         </p>
       </div>
       <div className="space-y-1">
-        <Label htmlFor={`fleet-${requestId}`}>Trucks / Drivers (same count)</Label>
+        <Label htmlFor={`fleet-${requestId}`}>{t('carrier.trucksDriversSameCount')}</Label>
         <Input
           id={`fleet-${requestId}`}
           type="text"
@@ -125,35 +128,35 @@ export function CarrierResponseForm({
           }}
           required
         />
-        <p className="text-xs text-muted-foreground">
-          Truck count and driver count stay equal (min 1)
-        </p>
+        <p className="text-xs text-muted-foreground">{t('carrier.fleetEqualHint')}</p>
       </div>
       {tripPlan && (
         <p className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-xs sm:col-span-2">
-          Trip plan: <strong>{tripPlan}</strong>
+          {t('carrier.tripPlan')}: <strong>{tripPlan}</strong>
         </p>
       )}
       <div className="space-y-1">
-        <Label htmlFor={`pickup-${requestId}`}>Estimated Pickup</Label>
+        <Label htmlFor={`pickup-${requestId}`}>{t('carrier.estimatedPickup')}</Label>
         <Input id={`pickup-${requestId}`} name="estimatedPickupTime" type="datetime-local" required />
       </div>
       <div className="space-y-1 sm:col-span-2">
-        <Label htmlFor={`truckinfo-${requestId}`}>Truck Info</Label>
-        <Input id={`truckinfo-${requestId}`} name="truckInfo" placeholder="10t x2" />
+        <Label htmlFor={`truckinfo-${requestId}`}>{t('carrier.truckInfo')}</Label>
+        <Input
+          id={`truckinfo-${requestId}`}
+          name="truckInfo"
+          placeholder={t('carrier.truckInfoPlaceholder')}
+        />
       </div>
       <div className="space-y-1 sm:col-span-2">
-        <Label htmlFor={`driverinfo-${requestId}`}>Driver Info</Label>
+        <Label htmlFor={`driverinfo-${requestId}`}>{t('carrier.driverInfo')}</Label>
         <Input id={`driverinfo-${requestId}`} name="driverInfo" placeholder="山田, 鈴木" />
       </div>
       {error && <p className="text-sm text-destructive sm:col-span-2">{error}</p>}
       <div className="sm:col-span-2">
         <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-          Submit Response
+          {t('carrier.submitResponse')}
         </Button>
-        <p className="mt-2 text-xs text-muted-foreground">
-          If capacity &lt; requested, remaining trips auto-split to subcontractors.
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">{t('carrier.autoSplitHint')}</p>
       </div>
     </form>
   );

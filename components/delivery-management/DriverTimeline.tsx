@@ -1,16 +1,17 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
 
-const STEPS = [
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'ASSIGNED', label: 'Assigned' },
-  { key: 'DISPATCHED', label: 'Dispatched' },
-  { key: 'PICKED_UP', label: 'Picked Up' },
-  { key: 'IN_TRANSIT', label: 'In Transit' },
-  { key: 'ARRIVED', label: 'Arrived' },
-  { key: 'DELIVERED', label: 'Delivered' },
-  { key: 'CUSTOMER_CONFIRMED', label: 'Customer Confirmed' },
+const STEP_KEYS = [
+  'PENDING',
+  'ASSIGNED',
+  'DISPATCHED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'ARRIVED',
+  'DELIVERED',
+  'CUSTOMER_CONFIRMED',
 ] as const;
 
 function normalize(status: string, confirmed: boolean) {
@@ -35,17 +36,18 @@ export function DriverTimeline({
   confirmed: boolean;
   compact?: boolean;
 }) {
+  const { statusLabel } = useTranslation();
   const current = normalize(status, confirmed);
-  const currentIdx = STEPS.findIndex((s) => s.key === current);
+  const currentIdx = STEP_KEYS.findIndex((key) => key === current);
 
   return (
     <div className={cn('w-full', compact && 'scale-95')}>
       <div className="flex flex-wrap items-center gap-1.5">
-        {STEPS.map((s, idx) => {
+        {STEP_KEYS.map((key, idx) => {
           const done = idx < currentIdx;
           const active = idx === currentIdx;
           return (
-            <div key={s.key} className="flex items-center gap-1.5">
+            <div key={key} className="flex items-center gap-1.5">
               <div
                 className={cn(
                   'rounded-full px-2.5 py-1 text-[10px] font-semibold sm:text-xs',
@@ -54,9 +56,9 @@ export function DriverTimeline({
                   !done && !active && 'bg-muted/50 text-muted-foreground'
                 )}
               >
-                {s.label}
+                {statusLabel(key)}
               </div>
-              {idx < STEPS.length - 1 && (
+              {idx < STEP_KEYS.length - 1 && (
                 <div className={cn('h-0.5 w-3 rounded-full sm:w-5', done ? 'bg-emerald-300' : 'bg-border')} />
               )}
             </div>

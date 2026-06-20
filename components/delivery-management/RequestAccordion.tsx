@@ -7,7 +7,9 @@ import { acceptOrder, rejectOrder } from '@/app/actions/transport';
 import { canCancelAssignment } from '@/lib/tms/request-compute';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn, statusColor, formatDate } from '@/lib/utils';
+import { cn, statusColor } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import { AssignTruckModal } from './AssignTruckModal';
 import { DriverProgressCard } from './DriverProgressCard';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
@@ -73,10 +75,6 @@ type Truck = {
 };
 type Driver = { id: string; name: string; isAvailable: boolean };
 
-function statusLabel(s: string) {
-  return s.replace(/_/g, ' ');
-}
-
 export function RequestAccordion({
   requests,
   trucks,
@@ -90,6 +88,7 @@ export function RequestAccordion({
   variant?: 'active' | 'delivered';
 }) {
   const router = useRouter();
+  const { t, formatDate, statusLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [assignFor, setAssignFor] = useState<null | { requestId: string; remainingQty: number; remainingWeight: number }>(
@@ -144,7 +143,7 @@ export function RequestAccordion({
   if (requests.length === 0) {
     return (
       <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No requests found.
+        {t('shinwa.noRequestsFound')}
       </div>
     );
   }
@@ -153,11 +152,11 @@ export function RequestAccordion({
     <div className="overflow-hidden rounded-xl border bg-white">
       {/* Header */}
       <div className="hidden border-b bg-muted/40 px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid md:grid-cols-[110px_1fr_72px_120px_64px_32px] md:gap-3">
-        <span>Request</span>
-        <span>Route</span>
-        <span>Boxes</span>
-        <span>Status</span>
-        <span>Progress</span>
+        <span>{t('table.request')}</span>
+        <span>{t('common.route')}</span>
+        <span>{t('table.boxes')}</span>
+        <span>{t('table.status')}</span>
+        <span>{t('common.progress')}</span>
         <span />
       </div>
 
@@ -217,7 +216,12 @@ export function RequestAccordion({
               <Badge className={cn('rounded-lg text-[10px] font-normal', statusColor(effectiveStatus))}>
                 {statusLabel(effectiveStatus)}
               </Badge>
-              <span className="text-xs text-muted-foreground">{req.totalQuantity} boxes · {Math.round(progress)}%</span>
+              <span className="text-xs text-muted-foreground">
+                {interpolate(t('shinwa.boxesProgress'), {
+                  count: req.totalQuantity,
+                  progress: Math.round(progress),
+                })}
+              </span>
             </div>
 
             {/* Expanded details */}
@@ -225,24 +229,24 @@ export function RequestAccordion({
               <div className="space-y-4 border-t bg-muted/10 px-4 py-4">
                 <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Cargo</p>
+                    <p className="text-xs text-muted-foreground">{t('driver.cargo')}</p>
                     <p className="font-medium">{req.cargoType ?? '—'}</p>
                     <p className="text-xs text-muted-foreground">
-                      {req.totalQuantity} boxes · {req.cargoWeight} kg
+                      {req.totalQuantity} {t('form.boxes')} · {req.cargoWeight} kg
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Customer</p>
+                    <p className="text-xs text-muted-foreground">{t('common.customer')}</p>
                     <p className="font-medium">{req.customer?.name ?? '—'}</p>
                     <p className="text-xs text-muted-foreground">{req.customer?.phone ?? ''}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Created</p>
+                    <p className="text-xs text-muted-foreground">{t('common.created')}</p>
                     <p className="font-medium">{formatDate(req.createdAt)}</p>
                   </div>
                   {readOnly && req.deliveredAt && (
                     <div>
-                      <p className="text-xs text-muted-foreground">Delivered</p>
+                      <p className="text-xs text-muted-foreground">{t('table.delivered')}</p>
                       <p className="font-medium">{formatDate(req.deliveredAt)}</p>
                     </div>
                   )}
@@ -253,15 +257,15 @@ export function RequestAccordion({
                     {req.status === 'PENDING' && (
                       <>
                         <Button size="sm" disabled={isPending} onClick={() => onAccept(req.id)}>
-                          Accept
+                          {t('shinwa.accept')}
                         </Button>
                         <Button size="sm" variant="destructive" disabled={isPending} onClick={() => onReject(req.id)}>
-                          Reject
+                          {t('shinwa.reject')}
                         </Button>
                       </>
                     )}
                     <Button size="sm" disabled={isPending || isFullyAllocated} onClick={() => onAutoAssign(req.id)}>
-                      Auto Assign
+                      {t('shinwa.autoAssign')}
                     </Button>
                     <Button
                       size="sm"
@@ -275,15 +279,13 @@ export function RequestAccordion({
                         })
                       }
                     >
-                      Manual Assign
+                      {t('shinwa.manualAssign')}
                     </Button>
                   </div>
                 )}
 
                 {!readOnly && isFullyAllocated && (
-                  <p className="text-xs text-muted-foreground">
-                    Fully assigned. Cancel an unconfirmed assignment to free capacity.
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t('shinwa.fullyAssignedHint')}</p>
                 )}
 
                 {activeAssignments(req).length > 0 ? (
@@ -303,7 +305,7 @@ export function RequestAccordion({
                   </div>
                 ) : (
                   !readOnly && (
-                    <p className="text-sm text-muted-foreground">No drivers assigned yet.</p>
+                    <p className="text-sm text-muted-foreground">{t('shinwa.noDriversAssigned')}</p>
                   )
                 )}
 

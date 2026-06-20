@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import { QRModal } from './QRModal';
 
 export function CustomerQRCard({
@@ -22,16 +24,17 @@ export function CustomerQRCard({
   expiresAt: Date | null;
   canGenerate: boolean;
 }) {
+  const { t, formatDate } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
-  const status = confirmed ? 'CONFIRMED' : 'WAITING';
+  const statusKey = confirmed ? 'CONFIRMED' : 'WAITING';
+  const statusLabel = confirmed ? t('driver.statusConfirmed') : t('driver.statusWaiting');
   const statusTone = confirmed ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700';
 
   useEffect(() => {
-    // Load existing QR if it exists (GET returns token/confirmation row)
     fetch(`/api/delivery/${requestId}/qr`)
       .then((r) => r.json())
       .then(() => {})
@@ -39,10 +42,10 @@ export function CustomerQRCard({
   }, [requestId]);
 
   const hint = useMemo(() => {
-    if (confirmed) return 'Customer has confirmed delivery.';
-    if (!canGenerate) return 'QR becomes available after Arrived.';
-    return 'Ask customer to scan this QR to confirm.';
-  }, [confirmed, canGenerate]);
+    if (confirmed) return t('delivery.customerConfirmed');
+    if (!canGenerate) return t('driver.qrHint');
+    return t('delivery.askCustomerScan');
+  }, [confirmed, canGenerate, t]);
 
   function generateQr() {
     setError(null);
@@ -54,18 +57,18 @@ export function CustomerQRCard({
         const res = await fetch(url, { method: 'POST' });
         const ct = res.headers.get('content-type') ?? '';
         if (!ct.includes('application/json')) {
-          setError('Failed to generate QR');
+          setError(t('delivery.qrGenerateFailed'));
           return;
         }
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error ?? 'Failed to generate QR');
+          setError(data.error ?? t('delivery.qrGenerateFailed'));
           return;
         }
         setQrDataUrl(data.qrDataUrl ?? null);
         setOpen(true);
       } catch {
-        setError('Failed to generate QR');
+        setError(t('delivery.qrGenerateFailed'));
       }
     });
   }
@@ -73,13 +76,12 @@ export function CustomerQRCard({
   return (
     <Card className="rounded-xl border-primary/10">
       <CardContent className="space-y-4 p-4">
-        {/* Confirmation controls stack on mobile and become inline on wider screens. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold">Customer Confirmation</p>
+            <p className="text-sm font-semibold">{t('delivery.customerConfirmation')}</p>
             <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
           </div>
-          <Badge className={cn('w-fit rounded-lg border-0 px-3 py-1', statusTone)}>{status}</Badge>
+          <Badge className={cn('w-fit rounded-lg border-0 px-3 py-1', statusTone)}>{statusLabel}</Badge>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -88,7 +90,7 @@ export function CustomerQRCard({
             disabled={isPending || !canGenerate}
             onClick={generateQr}
           >
-            {isPending ? 'Generating...' : 'Show Customer QR'}
+            {isPending ? t('delivery.generatingQr') : t('delivery.showCustomerQr')}
           </Button>
           <Button
             variant="outline"
@@ -96,13 +98,13 @@ export function CustomerQRCard({
             disabled={!qrDataUrl}
             onClick={() => setOpen(true)}
           >
-            Full Screen QR
+            {t('driver.fullScreenQr')}
           </Button>
         </div>
 
         {expiresAt && !confirmed && (
           <p className="text-[11px] text-muted-foreground">
-            Expires: {new Date(expiresAt).toLocaleString('ja-JP')}
+            {interpolate(t('driver.expires'), { time: formatDate(expiresAt) })}
           </p>
         )}
 
@@ -114,9 +116,8 @@ export function CustomerQRCard({
         onOpenChange={setOpen}
         requestNo={requestNo}
         qrDataUrl={qrDataUrl}
-        status={status}
+        status={statusKey}
       />
     </Card>
   );
 }
-

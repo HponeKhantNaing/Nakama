@@ -1,15 +1,16 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
 
-const STEPS = [
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'ASSIGNED', label: 'Assigned' },
-  { key: 'DISPATCHED', label: 'Dispatched' },
-  { key: 'PICKED_UP', label: 'Picked Up' },
-  { key: 'IN_TRANSIT', label: 'In Transit' },
-  { key: 'DELIVERED', label: 'Delivered' },
-  { key: 'CUSTOMER_CONFIRMED', label: 'Customer Confirmed' },
+const STEP_KEYS = [
+  'PENDING',
+  'ASSIGNED',
+  'DISPATCHED',
+  'PICKED_UP',
+  'IN_TRANSIT',
+  'DELIVERED',
+  'CUSTOMER_CONFIRMED',
 ] as const;
 
 function normalize(status: string, confirmed: boolean) {
@@ -31,17 +32,18 @@ export function DeliveryTimeline({
   status: string;
   confirmed: boolean;
 }) {
+  const { statusLabel } = useTranslation();
   const current = normalize(status, confirmed);
-  const currentIdx = STEPS.findIndex((s) => s.key === current);
+  const currentIdx = STEP_KEYS.findIndex((key) => key === current);
 
   return (
     <div className="w-full">
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {STEPS.map((s, idx) => {
+        {STEP_KEYS.map((key, idx) => {
           const done = idx < currentIdx;
           const active = idx === currentIdx;
           return (
-            <div key={s.key} className="flex min-w-max items-center gap-2">
+            <div key={key} className="flex min-w-max items-center gap-2">
               <div
                 className={cn(
                   'flex h-7 items-center rounded-full px-3 text-xs font-semibold',
@@ -50,9 +52,9 @@ export function DeliveryTimeline({
                   !done && !active && 'bg-muted/40 text-muted-foreground'
                 )}
               >
-                {s.label}
+                {statusLabel(key)}
               </div>
-              {idx < STEPS.length - 1 && (
+              {idx < STEP_KEYS.length - 1 && (
                 <div
                   className={cn(
                     'h-0.5 w-8 rounded-full',
@@ -67,4 +69,3 @@ export function DeliveryTimeline({
     </div>
   );
 }
-

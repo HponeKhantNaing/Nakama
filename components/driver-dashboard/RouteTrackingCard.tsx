@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
 import { cn, statusColor } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
 import type { LatLng } from '@/lib/tms/routing';
 
 export function RouteTrackingCard({
@@ -28,6 +29,7 @@ export function RouteTrackingCard({
   etaMinutes: number | null;
   speed: number | null;
 }) {
+  const { t, statusLabel } = useTranslation();
   const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
@@ -38,15 +40,17 @@ export function RouteTrackingCard({
   return (
     <Card className="rounded-xl">
       <CardContent className="space-y-3 p-4">
-        {/* Header stacks on phones so long status text never squeezes the map controls. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-semibold">Live Route Tracking</p>
+            <p className="text-sm font-semibold">{t('delivery.liveRouteTracking')}</p>
             <p className="mt-1 break-words text-xs text-muted-foreground">
-              🚚────────────🏁 {Math.round(progressPercent)}% · ETA {etaMinutes != null ? `${Math.round(etaMinutes)}m` : '—'}
+              🚚────────────🏁 {Math.round(progressPercent)}% · {t('delivery.eta')}{' '}
+              {etaMinutes != null ? `${Math.round(etaMinutes)}m` : '—'}
             </p>
           </div>
-          <Badge className={cn('w-fit rounded-lg font-normal', statusColor(status))}>{status}</Badge>
+          <Badge className={cn('w-fit rounded-lg font-normal', statusColor(status))}>
+            {statusLabel(status)}
+          </Badge>
         </div>
 
         {mapReady && route.length >= 2 ? (
@@ -63,21 +67,23 @@ export function RouteTrackingCard({
           />
         ) : (
           <div className="flex h-[clamp(280px,70vw,340px)] items-center justify-center rounded-xl bg-muted/30 text-sm text-muted-foreground">
-            Loading map...
+            {t('delivery.loadingMap')}
           </div>
         )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-muted/30 p-3">
-            <p className="text-[11px] text-muted-foreground">Distance remaining</p>
+            <p className="text-[11px] text-muted-foreground">{t('delivery.distanceRemaining')}</p>
             <p className="mt-1 text-base font-bold">{remainingKm.toFixed(1)} km</p>
           </div>
           <div className="rounded-xl bg-muted/30 p-3">
-            <p className="text-[11px] text-muted-foreground">Speed</p>
-            <p className="mt-1 text-base font-bold">{speed != null ? `${Math.round(speed)} km/h` : '—'}</p>
+            <p className="text-[11px] text-muted-foreground">{t('delivery.speed')}</p>
+            <p className="mt-1 text-base font-bold">
+              {speed != null ? `${Math.round(speed)} km/h` : '—'}
+            </p>
           </div>
           <div className="rounded-xl bg-muted/30 p-3">
-            <p className="text-[11px] text-muted-foreground">Progress</p>
+            <p className="text-[11px] text-muted-foreground">{t('common.progress')}</p>
             <p className="mt-1 text-base font-bold">{Math.round(progressPercent)}%</p>
           </div>
         </div>
@@ -85,4 +91,3 @@ export function RouteTrackingCard({
     </Card>
   );
 }
-

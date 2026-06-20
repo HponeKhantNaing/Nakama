@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { sendNegotiationChatMessage } from '@/app/actions/negotiation-chat';
 import { formatDate } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import { Send } from 'lucide-react';
 
 type ChatMessage = {
@@ -28,6 +30,7 @@ export function NegotiationChatPanel({
   viewerRole: 'MARUICHI_STAFF' | 'FACTORY_STAFF';
   onMessagesChange?: (messages: ChatMessage[]) => void;
 }) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [text, setText] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -84,14 +87,14 @@ export function NegotiationChatPanel({
   return (
     <div className="flex h-[320px] flex-col rounded-xl border bg-white">
       <div className="border-b px-3 py-2">
-        <p className="text-sm font-semibold">Negotiation Chat</p>
-        <p className="text-xs text-muted-foreground">{orderNo} · Warehouse ↔ Factory</p>
+        <p className="text-sm font-semibold">{t('factory.negotiationChat')}</p>
+        <p className="text-xs text-muted-foreground">
+          {interpolate(t('factory.chatSubtitle'), { orderNo })}
+        </p>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto p-3">
         {messages.length === 0 && (
-          <p className="text-center text-xs text-muted-foreground">
-            Start negotiating delivery dates and remaining quantity…
-          </p>
+          <p className="text-center text-xs text-muted-foreground">{t('factory.chatEmpty')}</p>
         )}
         {messages.map((m) => {
           const mine = m.sender.role === viewerRole;
@@ -117,7 +120,7 @@ export function NegotiationChatPanel({
         <Input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Can we receive remaining 30 boxes on June 23?"
+          placeholder={t('factory.chatPlaceholder')}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -125,7 +128,7 @@ export function NegotiationChatPanel({
             }
           }}
         />
-        <Button size="icon" disabled={isPending} onClick={send} aria-label="Send">
+        <Button size="icon" disabled={isPending} onClick={send} aria-label={t('common.send')}>
           <Send className="h-4 w-4" />
         </Button>
       </div>

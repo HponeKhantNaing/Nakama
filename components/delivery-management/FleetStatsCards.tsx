@@ -3,6 +3,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 
 export type FleetStats = {
   total: number;
@@ -14,14 +16,16 @@ export type FleetStats = {
 };
 
 function StatCard({
-  label,
+  labelKey,
   value,
   tone,
 }: {
-  label: string;
+  labelKey: TranslationKey;
   value: number;
   tone: 'neutral' | 'warning' | 'info' | 'success' | 'danger';
 }) {
+  const { t } = useTranslation();
+  const label = t(labelKey);
   const toneClass =
     tone === 'success'
       ? 'bg-emerald-50 text-emerald-700'
@@ -49,13 +53,12 @@ function StatCard({
 export function FleetStatsCards({ stats }: { stats: FleetStats }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
-      <StatCard label="Total Requests" value={stats.total} tone="neutral" />
-      <StatCard label="Pending" value={stats.pending} tone="warning" />
-      <StatCard label="Assigned" value={stats.assigned} tone="info" />
-      <StatCard label="In Transit" value={stats.inTransit} tone="info" />
-      <StatCard label="Delivered" value={stats.delivered} tone="success" />
-      <StatCard label="Cancelled" value={stats.cancelled} tone="danger" />
+      <StatCard labelKey="shinwa.totalRequests" value={stats.total} tone="neutral" />
+      <StatCard labelKey="status.PENDING" value={stats.pending} tone="warning" />
+      <StatCard labelKey="status.ASSIGNED" value={stats.assigned} tone="info" />
+      <StatCard labelKey="shinwa.inTransit" value={stats.inTransit} tone="info" />
+      <StatCard labelKey="status.DELIVERED" value={stats.delivered} tone="success" />
+      <StatCard labelKey="shinwa.cancelled" value={stats.cancelled} tone="danger" />
     </div>
   );
 }
-

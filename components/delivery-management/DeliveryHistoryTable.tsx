@@ -3,7 +3,8 @@
 import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { cn, formatDate, statusColor } from '@/lib/utils';
+import { cn, statusColor } from '@/lib/utils';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Row = {
   id: string;
@@ -17,6 +18,8 @@ type Row = {
 };
 
 export function DeliveryHistoryTable({ requests }: { requests: Row[] }) {
+  const { t, formatDate, statusLabel } = useTranslation();
+
   const rows = useMemo(
     () => requests.filter((r) => ['DELIVERED', 'CANCELLED'].includes(r.status)),
     [requests]
@@ -26,20 +29,20 @@ export function DeliveryHistoryTable({ requests }: { requests: Row[] }) {
     <Card className="rounded-2xl">
       <CardContent className="p-0">
         <div className="border-b px-5 py-4">
-          <p className="text-sm font-semibold">Delivery History</p>
-          <p className="text-xs text-muted-foreground">Past deliveries never disappear. Search and filter above.</p>
+          <p className="text-sm font-semibold">{t('delivery.historyTitle')}</p>
+          <p className="text-xs text-muted-foreground">{t('delivery.historyDesc')}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/30 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <th className="px-5 py-3">Request</th>
-                <th className="px-5 py-3">Origin</th>
-                <th className="px-5 py-3">Destination</th>
-                <th className="px-5 py-3">Truck Count</th>
-                <th className="px-5 py-3">Driver Count</th>
-                <th className="px-5 py-3">Delivered</th>
-                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">{t('table.request')}</th>
+                <th className="px-5 py-3">{t('table.origin')}</th>
+                <th className="px-5 py-3">{t('table.destination')}</th>
+                <th className="px-5 py-3">{t('table.truckCount')}</th>
+                <th className="px-5 py-3">{t('table.driverCount')}</th>
+                <th className="px-5 py-3">{t('table.delivered')}</th>
+                <th className="px-5 py-3">{t('table.status')}</th>
               </tr>
             </thead>
             <tbody>
@@ -55,9 +58,13 @@ export function DeliveryHistoryTable({ requests }: { requests: Row[] }) {
                     <td className="px-5 py-4">{r.destination}</td>
                     <td className="px-5 py-4">{truckCount}</td>
                     <td className="px-5 py-4">{driverCount}</td>
-                    <td className="px-5 py-4 text-muted-foreground">{r.deliveredAt ? formatDate(r.deliveredAt) : '-'}</td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {r.deliveredAt ? formatDate(r.deliveredAt) : '-'}
+                    </td>
                     <td className="px-5 py-4">
-                      <Badge className={cn('rounded-xl font-normal', statusColor(r.status))}>{r.status}</Badge>
+                      <Badge className={cn('rounded-xl font-normal', statusColor(r.status))}>
+                        {statusLabel(r.status)}
+                      </Badge>
                     </td>
                   </tr>
                 );
@@ -65,7 +72,7 @@ export function DeliveryHistoryTable({ requests }: { requests: Row[] }) {
               {rows.length === 0 && (
                 <tr>
                   <td className="px-5 py-10 text-center text-sm text-muted-foreground" colSpan={7}>
-                    No history rows found.
+                    {t('delivery.noHistoryRows')}
                   </td>
                 </tr>
               )}
@@ -76,4 +83,3 @@ export function DeliveryHistoryTable({ requests }: { requests: Row[] }) {
     </Card>
   );
 }
-

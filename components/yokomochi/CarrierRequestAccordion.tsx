@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getCarrierEligibleTrips, countInternalFleetTrips } from '@/lib/yokomochi/carrier-allocation';
 import { CarrierResponseForm } from '@/components/yokomochi/CarrierResponseForm';
-import { formatDate, cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
 type CarrierRequest = {
@@ -46,12 +48,13 @@ type CarrierRequest = {
 };
 
 export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest[] }) {
+  const { t, formatDate, statusLabel } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (requests.length === 0) {
     return (
       <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No carrier requests yet.
+        {t('carrier.noRequestsYet')}
       </div>
     );
   }
@@ -80,14 +83,15 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                   {fr?.warehouseCompany.name ?? '—'} ← {fr?.factoryCompany.name ?? '—'}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {req.requestedTrips} trips requested
+                  {interpolate(t('carrier.tripsRequested'), { count: req.requestedTrips })}
                   {(req.deliveryDate ?? req.yokomochiOrder.deliverySchedules?.[0]?.deliveryDate) &&
                     ` · ${formatDate(req.deliveryDate ?? req.yokomochiOrder.deliverySchedules![0].deliveryDate)}`}
-                  {internalCount > 0 && ` · ${internalCount} internal`}
+                  {internalCount > 0 &&
+                    ` · ${interpolate(t('carrier.internalCount'), { count: internalCount })}`}
                 </p>
               </div>
               <Badge variant={req.status === 'PENDING' ? 'default' : 'outline'} className="text-[10px]">
-                {req.status}
+                {statusLabel(req.status)}
               </Badge>
               {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </button>
@@ -95,21 +99,29 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
             {open && (
               <div className="space-y-4 border-t bg-muted/10 px-4 py-4">
                 <p className="text-sm text-muted-foreground">
-                  {order.cargoType ?? 'キーコーヒー'} · Total {order.totalTrips} trips
-                  {internalCount > 0 && ` · Internal ${internalCount}`} · Remaining for carrier{' '}
+                  {order.cargoType ?? t('yokomochi.defaultProduct')} ·{' '}
+                  {interpolate(t('carrier.totalTrips'), { count: order.totalTrips })}
+                  {internalCount > 0 &&
+                    ` · ${interpolate(t('carrier.internalCount'), { count: internalCount })}`}{' '}
+                  · {t('carrier.remainingForCarrier')}{' '}
                   <strong>{suggestedTrips}</strong>
                 </p>
 
                 {hasResponse ? (
                   <div className="rounded-lg border bg-white p-3 text-sm">
-                    <p className="font-medium">Your Response</p>
+                    <p className="font-medium">{t('carrier.yourResponse')}</p>
                     <p>
-                      {req.response!.availableTrips} trips · {req.response!.truckCount} trucks ·{' '}
-                      {req.response!.driverCount} drivers
+                      {interpolate(t('carrier.tripSummary'), {
+                        trips: req.response!.availableTrips,
+                        trucks: req.response!.truckCount,
+                        drivers: req.response!.driverCount,
+                      })}
                     </p>
                     {req.response!.estimatedPickupTime && (
                       <p className="text-xs text-muted-foreground">
-                        Pickup: {formatDate(req.response!.estimatedPickupTime)}
+                        {interpolate(t('carrier.pickupAt'), {
+                          time: formatDate(req.response!.estimatedPickupTime),
+                        })}
                       </p>
                     )}
                   </div>

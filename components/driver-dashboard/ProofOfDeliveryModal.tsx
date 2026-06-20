@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useTranslation } from '@/lib/i18n/context';
 
 async function uploadFileToS3(requestId: string, file: File, type: 'proof' | 'delivery') {
   const presign = await fetch('/api/upload/presign', {
@@ -24,7 +25,9 @@ async function uploadFileToS3(requestId: string, file: File, type: 'proof' | 'de
     }),
   }).then((r) => r.json());
 
-  if (!presign.uploadUrl || !presign.publicUrl) throw new Error(presign.error ?? 'Upload failed');
+  if (!presign.uploadUrl || !presign.publicUrl) {
+    throw new Error(presign.error ?? 'Upload failed');
+  }
 
   await fetch(presign.uploadUrl, {
     method: 'PUT',
@@ -44,6 +47,7 @@ export function ProofOfDeliveryModal({
   onOpenChange: (open: boolean) => void;
   requestId: string;
 }) {
+  const { t } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -61,12 +65,13 @@ export function ProofOfDeliveryModal({
 
         const result = await saveProofOfDelivery(requestId, { photoUrl, signatureUrl, notes });
         if (!result.success) {
-          setError(result.error ?? 'Failed to save');
+          setError(result.error ?? t('delivery.podSaveFailed'));
           return;
         }
         onOpenChange(false);
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to save');
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : t('delivery.podSaveFailed');
+        setError(message === 'Upload failed' ? t('delivery.uploadFailed') : message);
       }
     });
   }
@@ -75,34 +80,37 @@ export function ProofOfDeliveryModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg rounded-xl">
         <DialogHeader>
-          <DialogTitle>Proof of Delivery</DialogTitle>
+          <DialogTitle>{t('delivery.proofOfDelivery')}</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="space-y-2">
-            <Label>Delivery Photo</Label>
+            <Label>{t('delivery.deliveryPhoto')}</Label>
             <Input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files?.[0] ?? null)} />
           </div>
 
           <div className="space-y-2">
-            <Label>Customer Signature</Label>
+            <Label>{t('delivery.customerSignature')}</Label>
             <Input type="file" accept="image/*" onChange={(e) => setSignature(e.target.files?.[0] ?? null)} />
           </div>
 
           <div className="space-y-2">
-            <Label>Notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional notes..." />
+            <Label>{t('form.notes')}</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t('delivery.optionalNotes')}
+            />
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {/* Mobile buttons stack for thumb-friendly proof-of-delivery submission. */}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button className="w-full sm:w-auto" disabled={isPending} onClick={onSave}>
-              {isPending ? 'Saving...' : 'Save POD'}
+              {isPending ? t('common.saving') : t('delivery.savePod')}
             </Button>
           </div>
         </div>
@@ -110,4 +118,3 @@ export function ProofOfDeliveryModal({
     </Dialog>
   );
 }
-

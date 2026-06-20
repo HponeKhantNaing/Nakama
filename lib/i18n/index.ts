@@ -12,4 +12,17 @@ export function getTranslation(locale: Locale, key: TranslationKey): string {
   return translations[locale][key] ?? translations.en[key] ?? key;
 }
 
+export function interpolate(
+  template: string,
+  values: Record<string, string | number>
+): string {
+  return Object.entries(values).reduce(
+    (str, [key, value]) => str.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value)),
+    template
+  );
+}
+
+export { translateStatus } from './status';
+export { formatLocaleDate } from './format';
+
 export type { TranslationKey };

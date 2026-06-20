@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { assignCarrierTripDriver } from '@/app/actions/yokomochi';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Trip = {
   id: string;
@@ -30,15 +32,16 @@ export function CarrierAcceptedClient({
   trucks: { id: string; truckNo: string | null; truckNumber: string }[];
 }) {
   const router = useRouter();
+  const { t, statusLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const [selections, setSelections] = useState<Record<string, { driverId: string; truckId: string }>>({});
 
-  const pending = trips.filter((t) => t.status === 'CARRIER_ASSIGNED');
+  const pending = trips.filter((trip) => trip.status === 'CARRIER_ASSIGNED');
 
   if (trips.length === 0) {
     return (
       <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No accepted trips yet. Respond to warehouse requests first.
+        {t('carrier.noAcceptedTrips')}
       </div>
     );
   }
@@ -55,7 +58,9 @@ export function CarrierAcceptedClient({
   return (
     <div className="space-y-3">
       {pending.length > 0 && (
-        <p className="text-sm text-muted-foreground">{pending.length} trip(s) need driver assignment</p>
+        <p className="text-sm text-muted-foreground">
+          {interpolate(t('carrier.tripsNeedAssignment'), { count: pending.length })}
+        </p>
       )}
       {trips.map((trip) => (
         <div key={trip.id} className="rounded-xl border bg-white p-4">
@@ -64,15 +69,20 @@ export function CarrierAcceptedClient({
               <p className="font-mono text-xs text-muted-foreground">{trip.yokomochiOrder.orderNo}</p>
               <p className="font-medium">{trip.tripCode}</p>
               <p className="text-sm text-muted-foreground">
-                {trip.pallets}p · {trip.boxes}箱 · {trip.yokomochiOrder.cargoType ?? '—'}
+                {interpolate(t('yokomochi.palletsBoxesShort'), {
+                  pallets: trip.pallets,
+                  boxes: trip.boxes,
+                })}{' '}
+                · {trip.yokomochiOrder.cargoType ?? '—'}
               </p>
             </div>
-            <Badge variant="outline">{trip.status.replace(/_/g, ' ')}</Badge>
+            <Badge variant="outline">{statusLabel(trip.status)}</Badge>
           </div>
 
           {trip.driverTask ? (
             <p className="mt-3 text-sm">
-              Driver: <strong>{trip.driverTask.driver.name}</strong> · Truck:{' '}
+              {t('carrier.driverColon')}: <strong>{trip.driverTask.driver.name}</strong> ·{' '}
+              {t('carrier.truckColon')}:{' '}
               {trip.driverTask.truck?.truckNo ?? trip.driverTask.truck?.plateNumber ?? '—'}
             </p>
           ) : trip.status === 'CARRIER_ASSIGNED' ? (
@@ -87,7 +97,7 @@ export function CarrierAcceptedClient({
                   }))
                 }
               >
-                <option value="">Driver</option>
+                <option value="">{t('shinwa.selectDriver')}</option>
                 {drivers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -104,15 +114,15 @@ export function CarrierAcceptedClient({
                   }))
                 }
               >
-                <option value="">Truck</option>
-                {trucks.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.truckNo ?? t.truckNumber}
+                <option value="">{t('shinwa.selectVehicle')}</option>
+                {trucks.map((tr) => (
+                  <option key={tr.id} value={tr.id}>
+                    {tr.truckNo ?? tr.truckNumber}
                   </option>
                 ))}
               </select>
               <Button size="sm" disabled={isPending} onClick={() => assign(trip.id)}>
-                Assign Driver
+                {t('subcontractor.assign')}
               </Button>
             </div>
           ) : null}

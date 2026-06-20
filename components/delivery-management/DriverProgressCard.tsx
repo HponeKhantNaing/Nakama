@@ -4,6 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn, statusColor } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 import { DriverTimeline } from './DriverTimeline';
 import { CustomerConfirmationCard } from './CustomerConfirmationCard';
 import { MapPin, Navigation } from 'lucide-react';
@@ -56,8 +58,11 @@ export function DriverProgressCard({
   canCancel?: boolean;
   isCancelling?: boolean;
 }) {
+  const { t, statusLabel } = useTranslation();
   const isCancelled = assignment.status === 'CANCELLED';
-  const driverName = assignment.driver?.name ?? `Driver ${index + 1}`;
+  const driverName =
+    assignment.driver?.name ??
+    interpolate(t('driverProgress.driverIndex'), { index: index + 1 });
   const truckNo = assignment.truck?.truckNo ?? assignment.truck?.plateNumber ?? '—';
   const truckType = assignment.truck?.truckType ?? '—';
   const progress = assignment.deliveryProgress?.[0];
@@ -72,6 +77,11 @@ export function DriverProgressCard({
       : assignment.status === 'DELIVERED'
         ? 100
         : Math.round(tripPct);
+
+  const tripSuffix =
+    assignment.status !== 'DELIVERED' && tripPct > 0
+      ? interpolate(t('driverProgress.tripPct'), { pct: Math.round(tripPct) })
+      : '';
 
   return (
     <Card className={cn('rounded-3xl border-border/60 bg-white shadow-soft', isCancelled && 'opacity-60')}>
@@ -89,19 +99,19 @@ export function DriverProgressCard({
             </div>
           </div>
           <Badge className={cn('rounded-xl font-normal', statusColor(assignment.status))}>
-            {assignment.status.replace(/_/g, ' ')}
+            {statusLabel(assignment.status)}
           </Badge>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="rounded-2xl bg-muted/20 p-3 text-sm">
-            <p className="text-[11px] text-muted-foreground">Boxes</p>
+            <p className="text-[11px] text-muted-foreground">{t('table.boxes')}</p>
             <p className="font-semibold">
               {delBoxes} / {assignment.assignedQuantity}
             </p>
           </div>
           <div className="rounded-2xl bg-muted/20 p-3 text-sm">
-            <p className="text-[11px] text-muted-foreground">Weight (kg)</p>
+            <p className="text-[11px] text-muted-foreground">{t('driverProgress.weightKg')}</p>
             <p className="font-semibold">
               {Math.round(delWeight)} / {Math.round(assignment.assignedWeight)}
             </p>
@@ -111,8 +121,11 @@ export function DriverProgressCard({
         <div>
           <div className="mb-1 flex justify-between text-xs">
             <span className="text-muted-foreground">
-              Boxes {delBoxes} / {assignment.assignedQuantity}
-              {assignment.status !== 'DELIVERED' && tripPct > 0 ? ` · Trip ${Math.round(tripPct)}%` : ''}
+              {interpolate(t('driverProgress.boxesProgress'), {
+                delivered: delBoxes,
+                total: assignment.assignedQuantity,
+                trip: tripSuffix,
+              })}
             </span>
             <span className="font-semibold">{boxPct}%</span>
           </div>
@@ -135,10 +148,12 @@ export function DriverProgressCard({
             {progress?.etaMinutes != null && (
               <span className="inline-flex items-center gap-1">
                 <Navigation className="h-3.5 w-3.5" />
-                ETA {Math.round(progress.etaMinutes)} min
+                {interpolate(t('driverProgress.etaMin'), { min: Math.round(progress.etaMinutes) })}
               </span>
             )}
-            {progress?.speed != null && <span>Speed {Math.round(progress.speed)} km/h</span>}
+            {progress?.speed != null && (
+              <span>{interpolate(t('driverProgress.speedKmh'), { speed: Math.round(progress.speed) })}</span>
+            )}
           </div>
         )}
 
@@ -162,7 +177,7 @@ export function DriverProgressCard({
             disabled={isCancelling}
             onClick={onCancel}
           >
-            Cancel Assignment
+            {t('driverProgress.cancelAssignment')}
           </Button>
         )}
       </CardContent>

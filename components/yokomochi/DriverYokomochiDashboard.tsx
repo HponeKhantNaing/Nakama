@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { updateDriverTaskStatus } from '@/app/actions/yokomochi';
-import { formatDate } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 import { YokomochiWarehouseQRCard } from '@/components/yokomochi/YokomochiWarehouseQRCard';
 import { ArrowDown, Package, Truck } from 'lucide-react';
 
@@ -32,15 +34,19 @@ type Task = {
   truck: { truckNo: string | null; plateNumber: string } | null;
 };
 
-const ACTION_MAP: Record<string, { next: 'ARRIVED_FACTORY' | 'LOADED_CARGO' | 'IN_TRANSIT' | 'ARRIVED_WAREHOUSE'; label: string }> = {
-  ASSIGNED: { next: 'ARRIVED_FACTORY', label: '工場到着' },
-  ARRIVED_FACTORY: { next: 'LOADED_CARGO', label: '積込完了' },
-  LOADED_CARGO: { next: 'IN_TRANSIT', label: '配送開始' },
-  IN_TRANSIT: { next: 'ARRIVED_WAREHOUSE', label: '倉庫到着' },
+const ACTION_MAP: Record<
+  string,
+  { next: 'ARRIVED_FACTORY' | 'LOADED_CARGO' | 'IN_TRANSIT' | 'ARRIVED_WAREHOUSE'; labelKey: TranslationKey }
+> = {
+  ASSIGNED: { next: 'ARRIVED_FACTORY', labelKey: 'yokomochiDriver.actionArrivedFactory' },
+  ARRIVED_FACTORY: { next: 'LOADED_CARGO', labelKey: 'yokomochiDriver.actionLoadedCargo' },
+  LOADED_CARGO: { next: 'IN_TRANSIT', labelKey: 'yokomochiDriver.actionStartTransit' },
+  IN_TRANSIT: { next: 'ARRIVED_WAREHOUSE', labelKey: 'yokomochiDriver.actionArrivedWarehouse' },
 };
 
 export function DriverYokomochiDashboard({ task, history }: { task: Task | null; history: Task[] }) {
   const router = useRouter();
+  const { t, formatDate, statusLabel } = useTranslation();
   const [isPending, startTransition] = useTransition();
   const action = task ? ACTION_MAP[task.status] : null;
 
@@ -54,8 +60,15 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
     <DashboardShell titleKey="dashboard.driver" navItems={navItems}>
       <div className="mx-auto max-w-lg space-y-6 pb-8">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">横持配送</h1>
-          <p className="text-sm text-muted-foreground">キーコーヒー → 20号物流センター</p>
+          <h1 className="text-xl font-semibold tracking-tight">{t('yokomochiDriver.title')}</h1>
+          {task && (
+            <p className="text-sm text-muted-foreground">
+              {interpolate(t('yokomochiDriver.routeExample'), {
+                origin: task.pickupLocation,
+                destination: task.destination,
+              })}
+            </p>
+          )}
         </div>
 
         {task ? (
@@ -66,7 +79,7 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
                   <p className="font-mono text-xs text-muted-foreground">{task.trip.tripCode}</p>
                   <p className="text-lg font-semibold">{task.trip.yokomochiOrder.orderNo}</p>
                 </div>
-                <Badge variant="outline">{task.status.replace(/_/g, ' ')}</Badge>
+                <Badge variant="outline">{statusLabel(task.status)}</Badge>
               </div>
 
               <div className="rounded-xl bg-muted/40 p-4">
@@ -76,7 +89,9 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
                   <span>{task.destination}</span>
                 </div>
                 {task.eta && (
-                  <p className="mt-2 text-sm text-muted-foreground">ETA {formatDate(task.eta)}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t('delivery.eta')} {formatDate(task.eta)}
+                  </p>
                 )}
               </div>
 
@@ -88,13 +103,18 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
                 <div className="flex items-center gap-2 rounded-lg border p-3">
                   <Package className="h-4 w-4 text-muted-foreground" />
                   <span>
-                    {task.pallets}P · {task.boxes}箱
+                    {interpolate(t('yokomochi.palletsBoxesShort'), {
+                      pallets: task.pallets,
+                      boxes: task.boxes,
+                    })}
                   </span>
                 </div>
               </div>
 
               {task.cargoType && (
-                <p className="text-sm text-muted-foreground">荷種: {task.cargoType}</p>
+                <p className="text-sm text-muted-foreground">
+                  {interpolate(t('yokomochi.cargoLabel'), { type: task.cargoType })}
+                </p>
               )}
 
               {action && (
@@ -108,7 +128,7 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
                     })
                   }
                 >
-                  {action.label}
+                  {t(action.labelKey)}
                 </Button>
               )}
 
@@ -119,7 +139,7 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
                     orderNo={task.trip.yokomochiOrder.orderNo}
                   />
                   <p className="text-center text-sm text-muted-foreground">
-                    倉庫確認待ち — 倉庫が下記トリップコードをスキャンすると完了します
+                    {t('yokomochiDriver.warehousePending')}
                   </p>
                 </>
               )}
@@ -128,23 +148,27 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
         ) : (
           <Card>
             <CardContent className="py-16 text-center text-muted-foreground">
-              現在の配送タスクはありません
+              {t('yokomochiDriver.noTask')}
             </CardContent>
           </Card>
         )}
 
         {history.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground">配送履歴</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground">{t('yokomochiDriver.history')}</h2>
             {history.map((h) => (
               <div key={h.id} className="flex items-center justify-between rounded-lg border px-4 py-3 text-sm">
                 <div>
                   <p className="font-medium">{h.trip.tripCode}</p>
                   <p className="text-xs text-muted-foreground">
-                    {h.pallets}P · {h.cargoType ?? '—'}
+                    {interpolate(t('yokomochi.palletsBoxesShort'), {
+                      pallets: h.pallets,
+                      boxes: h.boxes,
+                    })}{' '}
+                    · {h.cargoType ?? '—'}
                   </p>
                 </div>
-                <Badge variant="secondary">{h.status}</Badge>
+                <Badge variant="secondary">{statusLabel(h.status)}</Badge>
               </div>
             ))}
           </section>

@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { RequestAccordion } from './RequestAccordion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { interpolate } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n/context';
 
 type Truck = {
   id: string;
@@ -56,6 +58,7 @@ export function DeliveryManagementBoard({
   variant?: 'active' | 'delivered';
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useSearchParams();
   const [search, setSearch] = useState(params.get('search') ?? '');
 
@@ -69,15 +72,15 @@ export function DeliveryManagementBoard({
       {variant === 'active' && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border bg-white px-4 py-3">
-            <p className="text-xs text-muted-foreground">Pending</p>
+            <p className="text-xs text-muted-foreground">{t('status.PENDING')}</p>
             <p className="text-2xl font-bold">{data.stats.pending}</p>
           </div>
           <div className="rounded-xl border bg-white px-4 py-3">
-            <p className="text-xs text-muted-foreground">In Progress</p>
+            <p className="text-xs text-muted-foreground">{t('delivery.inProgress')}</p>
             <p className="text-2xl font-bold">{data.stats.assigned + data.stats.inTransit}</p>
           </div>
           <div className="rounded-xl border bg-white px-4 py-3">
-            <p className="text-xs text-muted-foreground">Active Total</p>
+            <p className="text-xs text-muted-foreground">{t('delivery.activeTotal')}</p>
             <p className="text-2xl font-bold">{data.total}</p>
           </div>
         </div>
@@ -86,15 +89,15 @@ export function DeliveryManagementBoard({
       {variant === 'delivered' && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border bg-white px-4 py-3">
-            <p className="text-xs text-muted-foreground">Delivered</p>
+            <p className="text-xs text-muted-foreground">{t('status.DELIVERED')}</p>
             <p className="text-2xl font-bold">{data.stats.delivered}</p>
           </div>
           <div className="rounded-xl border bg-white px-4 py-3">
-            <p className="text-xs text-muted-foreground">Cancelled</p>
+            <p className="text-xs text-muted-foreground">{t('shinwa.cancelled')}</p>
             <p className="text-2xl font-bold">{data.stats.cancelled}</p>
           </div>
           <div className="rounded-xl border bg-white px-4 py-3 sm:col-span-1 col-span-2">
-            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="text-xs text-muted-foreground">{t('delivery.total')}</p>
             <p className="text-2xl font-bold">{data.total}</p>
           </div>
         </div>
@@ -110,18 +113,18 @@ export function DeliveryManagementBoard({
               router.push(buildUrl(params, { search: search.trim(), page: '1' }));
             }
           }}
-          placeholder="Search request no, origin, destination..."
+          placeholder={t('delivery.searchPlaceholder')}
           className="max-w-md"
         />
         <Button
           variant="outline"
           onClick={() => router.push(buildUrl(params, { search: search.trim(), page: '1' }))}
         >
-          Search
+          {t('common.search')}
         </Button>
         {params.get('search') && (
           <Button variant="ghost" onClick={() => router.push(buildUrl(params, { search: null, page: '1' }))}>
-            Clear
+            {t('common.clear')}
           </Button>
         )}
       </div>
@@ -137,14 +140,18 @@ export function DeliveryManagementBoard({
       {data.totalPages > 1 && (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <span>
-            Page {data.page} of {data.totalPages} · {data.total} requests
+            {interpolate(t('board.pageInfo'), {
+              page: data.page,
+              totalPages: data.totalPages,
+              total: data.total,
+            })}
           </span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" disabled={!canPrev} onClick={() => router.push(buildUrl(params, { page: String(page - 1) }))}>
-              Previous
+              {t('common.previous')}
             </Button>
             <Button size="sm" variant="outline" disabled={!canNext} onClick={() => router.push(buildUrl(params, { page: String(page + 1) }))}>
-              Next
+              {t('common.next')}
             </Button>
           </div>
         </div>

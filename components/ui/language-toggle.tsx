@@ -5,7 +5,7 @@ import type { Locale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 export function LanguageToggle({ className }: { className?: string }) {
-  const { locale, setLocale } = useTranslation();
+  const { locale, setLocale, t } = useTranslation();
 
   const options: { value: Locale; label: string }[] = [
     { value: 'ja', label: '日本語' },
@@ -19,7 +19,7 @@ export function LanguageToggle({ className }: { className?: string }) {
         className
       )}
       role="group"
-      aria-label="Language"
+      aria-label={t('lang.switch')}
     >
       {options.map((opt) => (
         <button

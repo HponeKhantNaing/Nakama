@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn, formatDate } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
 import { handleNegotiation, verifyWarehouseDelivery, confirmOrderTrips } from '@/app/actions/yokomochi';
 import { calculateTripsFromPallets } from '@/lib/yokomochi/trip-calculation';
 import { ChevronDown, ChevronRight, ArrowRight, Truck } from 'lucide-react';
@@ -18,6 +19,7 @@ import {
   wholePalletsFromBoxes,
 } from '@/lib/yokomochi/pallet-capacity';
 import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 
 const DEFAULT_REQUESTED_BOXES = '400';
 
@@ -72,13 +74,14 @@ type Order = {
 
 function requestPartnerName(
   fr: Order['factoryRequest'],
-  mode: 'warehouse' | 'factory' | 'negotiations' | 'history'
+  mode: 'warehouse' | 'factory' | 'negotiations' | 'history',
+  t: (key: TranslationKey) => string
 ): string {
   if (!fr) return '—';
   if (mode === 'factory') {
-    return fr.warehouseCompany?.name ?? '20号物流センター';
+    return fr.warehouseCompany?.name ?? t('yokomochi.defaultWarehouse');
   }
-  return fr.factoryCompany?.name ?? '飲料工場';
+  return fr.factoryCompany?.name ?? t('yokomochi.defaultFactory');
 }
 
 function needsTripCalculation(order: Order): boolean {
@@ -86,22 +89,24 @@ function needsTripCalculation(order: Order): boolean {
   return !!order.factoryResponse && trips.length === 0 && order.status !== 'CANCELLED';
 }
 
-function warehouseNextStep(order: Order): { label: string; href?: string; action?: 'confirm-trips' } | null {
+function warehouseNextStep(
+  order: Order
+): { labelKey: TranslationKey; href?: string; action?: 'confirm-trips' } | null {
   const trips = order.trips ?? [];
   if (needsTripCalculation(order)) {
-    return { label: '配車便数を計算', action: 'confirm-trips' };
+    return { labelKey: 'yokomochi.calcTrips', action: 'confirm-trips' };
   }
   if (
     ['TRIPS_CALCULATED', 'INTERNAL_SCHEDULING', 'APPROVED'].includes(order.status) &&
     trips.length > 0
   ) {
-    return { label: '内部フリート配車へ', href: '/warehouse/internal-fleet' };
+    return { labelKey: 'yokomochi.goInternalFleet', href: '/warehouse/internal-fleet' };
   }
   if (['CARRIER_PENDING', 'SUBCONTRACTING', 'DRIVER_ASSIGNED'].includes(order.status)) {
-    return { label: '建会社依頼を確認', href: '/warehouse/external-carrier' };
+    return { labelKey: 'yokomochi.checkExternalCarrier', href: '/warehouse/external-carrier' };
   }
   if (order.status === 'AWAITING_VERIFICATION') {
-    return { label: '到着確認が必要', action: undefined };
+    return { labelKey: 'yokomochi.arrivalVerificationNeeded' };
   }
   return null;
 }
@@ -119,6 +124,7 @@ export function YokomochiOrderAccordion({
   mode: 'warehouse' | 'factory' | 'negotiations' | 'history';
 }) {
   const router = useRouter();
+  const { t, formatDate: formatLocaleDate, statusLabel } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -132,7 +138,7 @@ export function YokomochiOrderAccordion({
   if (filtered.length === 0) {
     return (
       <div className="rounded-xl border border-dashed py-16 text-center text-sm text-muted-foreground">
-        No records found.
+        {t('yokomochi.noRecords')}
       </div>
     );
   }
@@ -143,10 +149,8 @@ export function YokomochiOrderAccordion({
     <div className="space-y-4">
       {pendingWarehouse.length > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-semibold">次のステップ</p>
-          <p className="mt-1 text-xs">
-            工場承認済みですが配車便が未計算です。下の「配車便数を計算」を押すか、行を展開して続行してください。
-          </p>
+          <p className="font-semibold">{t('yokomochi.nextStep')}</p>
+          <p className="mt-1 text-xs">{t('yokomochi.nextStepHint')}</p>
         </div>
       )}
     <div className="overflow-hidden rounded-xl border bg-white">
@@ -156,14 +160,18 @@ export function YokomochiOrderAccordion({
           mode === 'warehouse' ? WAREHOUSE_ORDER_GRID : DEFAULT_ORDER_GRID
         )}
       >
-        <span>Order</span>
-        <span>Product / {mode === 'factory' ? 'Warehouse' : 'Factory'}</span>
-        <span>Pallets</span>
-        <span className="min-w-[150px] whitespace-nowrap">Status</span>
-        <span>Trips</span>
-        {mode === 'warehouse' && <span>Action</span>}
+        <span>{t('yokomochi.order')}</span>
+        <span>
+          {interpolate(t('factory.productWarehouse'), {
+            partner: mode === 'factory' ? t('factory.warehouse') : t('factory.factory'),
+          })}
+        </span>
+        <span>{t('carrier.pallets')}</span>
+        <span className="min-w-[150px] whitespace-nowrap">{t('table.status')}</span>
+        <span>{t('yokomochi.trips')}</span>
+        {mode === 'warehouse' && <span>{t('yokomochi.action')}</span>}
         <span aria-hidden className="sr-only">
-          Expand
+          {t('yokomochi.expand')}
         </span>
       </div>
 
@@ -174,7 +182,7 @@ export function YokomochiOrderAccordion({
         const neg = order.factoryNegotiation;
         const calc = res ? calculateTripsFromPallets(res.availablePallets) : null;
         if (!fr) return null;
-        const partner = requestPartnerName(fr, mode);
+        const partner = requestPartnerName(fr, mode, t);
         const trips = order.trips ?? [];
         const next = mode === 'warehouse' ? warehouseNextStep(order) : null;
 
@@ -195,9 +203,9 @@ export function YokomochiOrderAccordion({
                 <div className="min-w-0 flex-1">
                   <p className="font-mono text-xs text-muted-foreground">{order.orderNo}</p>
                   <p className="truncate text-sm font-medium">
-                    {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
+                    {order.productName ?? order.cargoType ?? t('yokomochi.defaultProduct')} · {partner}
                   </p>
-                  <p className="text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+                  <p className="text-xs text-muted-foreground">{formatLocaleDate(order.createdAt)}</p>
                 </div>
                 {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
               </button>
@@ -215,7 +223,7 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      {next.label}
+                      {t(next.labelKey)}
                     </Button>
                   ) : next.href ? (
                     <Link
@@ -223,7 +231,7 @@ export function YokomochiOrderAccordion({
                       className="inline-flex h-8 max-w-full items-center truncate rounded-md border border-input bg-background px-2 text-xs font-medium hover:bg-accent"
                     >
                       <Truck className="mr-1 h-3 w-3 shrink-0" />
-                      <span className="truncate">{next.label}</span>
+                      <span className="truncate">{t(next.labelKey)}</span>
                     </Link>
                   ) : null}
                 </div>
@@ -251,18 +259,18 @@ export function YokomochiOrderAccordion({
                 onClick={() => setExpanded(open ? null : order.id)}
               >
                 <p className="truncate text-sm font-medium">
-                  {order.productName ?? order.cargoType ?? 'キーコーヒー'} · {partner}
+                  {order.productName ?? order.cargoType ?? t('yokomochi.defaultProduct')} · {partner}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">{formatDate(order.createdAt)}</p>
+                <p className="truncate text-xs text-muted-foreground">{formatLocaleDate(order.createdAt)}</p>
               </button>
               <span className="text-sm tabular-nums">{fr.requestedPallets}</span>
               <span className="min-w-[150px] overflow-hidden">
                 <Badge
                   variant="outline"
                   className="whitespace-nowrap text-[10px]"
-                  title={order.status.replace(/_/g, ' ')}
+                  title={statusLabel(order.status)}
                 >
-                  {order.status.replace(/_/g, ' ')}
+                  {statusLabel(order.status)}
                 </Badge>
               </span>
               <span className="text-sm font-medium tabular-nums">
@@ -282,16 +290,16 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      <span className="truncate">{next.label}</span>
+                      <span className="truncate">{t(next.labelKey)}</span>
                     </Button>
                   ) : next?.href ? (
                     <Link
                       href={next.href}
                       className="inline-flex h-8 w-full max-w-full items-center truncate rounded-md border border-input bg-background px-2 text-xs font-medium hover:bg-accent"
-                      title={next.label}
+                      title={t(next.labelKey)}
                     >
                       <Truck className="mr-1 h-3 w-3 shrink-0" />
-                      <span className="truncate">{next.label}</span>
+                      <span className="truncate">{t(next.labelKey)}</span>
                     </Link>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
@@ -302,7 +310,7 @@ export function YokomochiOrderAccordion({
                 type="button"
                 className="flex justify-end"
                 onClick={() => setExpanded(open ? null : order.id)}
-                aria-label={open ? 'Collapse' : 'Expand'}
+                aria-label={open ? t('common.collapse') : t('common.expand')}
               >
                 {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
@@ -312,13 +320,18 @@ export function YokomochiOrderAccordion({
               <div className="space-y-4 border-t bg-muted/10 px-4 py-4 text-sm">
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Requested</p>
-                    <p>{fr.requestedPallets} pallets · {fr.requestedBoxes} boxes</p>
-                    <p className="text-xs">{formatDate(fr.requestedDate)}</p>
+                    <p className="text-xs text-muted-foreground">{t('yokomochi.requested')}</p>
+                    <p>
+                      {interpolate(t('yokomochi.palletsBoxes'), {
+                        pallets: fr.requestedPallets,
+                        boxes: fr.requestedBoxes,
+                      })}
+                    </p>
+                    <p className="text-xs">{formatLocaleDate(fr.requestedDate)}</p>
                   </div>
                   {res && (
                     <div>
-                      <p className="text-xs text-muted-foreground">Factory Response</p>
+                      <p className="text-xs text-muted-foreground">{t('yokomochi.factoryResponse')}</p>
                       <p>
                         {res.availablePallets} pallets · {res.negotiationStatus}
                       </p>
@@ -331,7 +344,7 @@ export function YokomochiOrderAccordion({
                   )}
                   {trips.length > 0 && (
                     <div>
-                      <p className="text-xs text-muted-foreground">Trips</p>
+                      <p className="text-xs text-muted-foreground">{t('yokomochi.trips')}</p>
                       {trips.map((t) => (
                         <p key={t.id} className="text-xs">
                           {t.tripCode}: {t.pallets}p · {t.status}
@@ -352,11 +365,13 @@ export function YokomochiOrderAccordion({
 
                 {order.negotiationHistory?.length > 0 && (
                   <div>
-                    <p className="mb-1 text-xs font-semibold text-muted-foreground">Negotiation History</p>
+                    <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                      {t('factory.negotiationHistory')}
+                    </p>
                     <div className="space-y-1">
                       {order.negotiationHistory.map((h, i) => (
                         <p key={i} className="text-xs text-muted-foreground">
-                          {formatDate(h.createdAt)} — {h.action}
+                          {formatLocaleDate(h.createdAt)} — {h.action}
                           {h.message ? `: ${h.message}` : ''}
                         </p>
                       ))}
@@ -366,10 +381,12 @@ export function YokomochiOrderAccordion({
 
                 {mode === 'warehouse' && needsTripCalculation(order) && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                    <p className="mb-2 text-sm font-semibold">Step 2 — 配車便数の自動計算</p>
+                    <p className="mb-2 text-sm font-semibold">{t('factory.step2FleetCalc')}</p>
                     <p className="mb-3 text-xs text-muted-foreground">
-                      {res?.availablePallets ?? '—'} パレット ÷ 16 ={' '}
-                      {res ? calculateTripsFromPallets(res.availablePallets).totalTrips : '—'} 便
+                      {interpolate(t('yokomochi.palletCalc'), {
+                        pallets: res?.availablePallets ?? '—',
+                        trips: res ? calculateTripsFromPallets(res.availablePallets).totalTrips : '—',
+                      })}
                     </p>
                     <Button
                       disabled={isPending}
@@ -380,7 +397,7 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      配車便数を計算して続行
+                      {t('yokomochi.calcTripsContinue')}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -390,15 +407,15 @@ export function YokomochiOrderAccordion({
                   ['TRIPS_CALCULATED', 'INTERNAL_SCHEDULING'].includes(order.status) &&
                   trips.length > 0 && (
                     <div className="rounded-lg border bg-white p-4">
-                      <p className="mb-2 text-sm font-semibold">Step 3 — 社内フリート配車</p>
+                      <p className="mb-2 text-sm font-semibold">{t('factory.step3InternalFleet')}</p>
                       <p className="mb-3 text-xs text-muted-foreground">
-                        {trips.length} 便を小野・浅川のタイムラインに割り当ててください。
+                        {interpolate(t('yokomochi.assignDriversHint'), { count: trips.length })}
                       </p>
                       <Link
                         href="/warehouse/internal-fleet"
                         className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                       >
-                        内部フリートへ
+                        {t('yokomochi.goInternalFleetBtn')}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </Link>
                     </div>
@@ -419,9 +436,12 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Approve {neg.status === 'PARTIAL'
-                        ? `partial (${neg.availableBoxes} + ${neg.remainingBoxes} boxes)`
-                        : `full (${neg.availableBoxes} boxes)`}
+                      {neg.status === 'PARTIAL'
+                        ? interpolate(t('negotiation.approvePartial'), {
+                            available: neg.availableBoxes,
+                            remaining: neg.remainingBoxes,
+                          })
+                        : interpolate(t('negotiation.approveFull'), { available: neg.availableBoxes })}
                     </Button>
                     <Button
                       size="sm"
@@ -434,7 +454,7 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Request Again
+                      {t('yokomochi.requestAgain')}
                     </Button>
                     <Button
                       size="sm"
@@ -447,7 +467,7 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Reject
+                      {t('shinwa.reject')}
                     </Button>
                   </div>
                 )}
@@ -464,7 +484,7 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Approve Arrival
+                      {t('delivery.approveArrival')}
                     </Button>
                     <Button
                       size="sm"
@@ -481,16 +501,20 @@ export function YokomochiOrderAccordion({
                         })
                       }
                     >
-                      Reject
+                      {t('shinwa.reject')}
                     </Button>
                   </div>
                 )}
 
                 {order.deliveryForm && (
                   <div className="rounded-lg border bg-white p-3">
-                    <p className="text-xs font-semibold">横持輸送確認書 (Digital)</p>
-                    <p className="text-xs">No: {order.deliveryForm.deliveryNo}</p>
-                    <p className="text-xs">Approved by: {order.deliveryForm.approvedBy}</p>
+                    <p className="text-xs font-semibold">{t('factory.deliveryFormTitle')}</p>
+                    <p className="text-xs">
+                      {t('factory.deliveryFormNo')}: {order.deliveryForm.deliveryNo}
+                    </p>
+                    <p className="text-xs">
+                      {t('factory.approvedBy')}: {order.deliveryForm.approvedBy}
+                    </p>
                   </div>
                 )}
               </div>
@@ -536,7 +560,7 @@ export function CreateFactoryRequestForm({
         notes: String(fd.get('notes') || ''),
       });
       if (!result.success) {
-        setError(result.error ?? 'Failed');
+        setError(result.error ?? t('factory.submitFailed'));
         return;
       }
       router.refresh();
@@ -548,7 +572,7 @@ export function CreateFactoryRequestForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-4 rounded-xl border bg-white p-4 md:grid-cols-2">
       <div className="space-y-2 md:col-span-2">
-        <Label>Factory</Label>
+        <Label>{t('factory.factory')}</Label>
         <select name="factoryCompanyId" required className="w-full rounded-lg border px-3 py-2 text-sm">
           {factories.map((f) => (
             <option key={f.id} value={f.id}>
@@ -558,15 +582,23 @@ export function CreateFactoryRequestForm({
         </select>
       </div>
       <div className="space-y-2">
-        <Label>Product Name</Label>
-        <Input name="productName" placeholder="キーコーヒー" defaultValue="キーコーヒー" />
+        <Label>{t('factory.productName')}</Label>
+        <Input
+          name="productName"
+          placeholder={t('yokomochi.defaultProduct')}
+          defaultValue={t('yokomochi.defaultProduct')}
+        />
       </div>
       <div className="space-y-2">
-        <Label>Cargo Type</Label>
-        <Input name="cargoType" placeholder="飲料" defaultValue="飲料" />
+        <Label>{t('form.cargoType')}</Label>
+        <Input
+          name="cargoType"
+          placeholder={t('yokomochi.defaultCargo')}
+          defaultValue={t('yokomochi.defaultCargo')}
+        />
       </div>
       <div className="space-y-2">
-        <Label>Boxes</Label>
+        <Label>{t('form.totalBoxes')}</Label>
         <Input
           name="requestedBoxes"
           type="number"
@@ -590,22 +622,22 @@ export function CreateFactoryRequestForm({
         )}
       </div>
       <div className="space-y-2">
-        <Label>Pallets</Label>
+        <Label>{t('carrier.pallets')}</Label>
         {/* Pallets are derived from boxes so arrow-key and stepper changes stay in sync. */}
         <Input name="requestedPallets" type="number" readOnly value={requestedPallets || ''} />
       </div>
       <div className="space-y-2">
-        <Label>Requested Date</Label>
+        <Label>{t('carrier.requestedDate')}</Label>
         <Input name="requestedDate" type="date" required />
       </div>
       <div className="space-y-2 md:col-span-2">
-        <Label>Notes</Label>
-        <Input name="notes" placeholder="Optional" />
+        <Label>{t('form.notes')}</Label>
+        <Input name="notes" placeholder={t('common.optional')} />
       </div>
       {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
       <div className="md:col-span-2">
         <Button type="submit" disabled={isPending || !boxesValid} className="rounded-xl">
-          {isPending ? 'Sending...' : 'Send Factory Request'}
+          {isPending ? t('factory.sending') : t('factory.sendRequest')}
         </Button>
       </div>
     </form>

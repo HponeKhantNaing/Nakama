@@ -10,8 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
 import { useGpsSimulation } from '@/hooks/useGpsSimulation';
 import { decodePolyline } from '@/lib/tms/routing';
-import { formatDate, statusColor } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { interpolate } from '@/lib/i18n';
 import { MapPin, Package, User, Navigation } from 'lucide-react';
 import { AppLogo } from '@/components/ui/app-logo';
 import { useTranslation } from '@/lib/i18n/context';
@@ -318,31 +318,37 @@ export function DriverJobCard({ job }: DriverJobCardProps) {
           {/* Process records (real timestamps + confirmation state) */}
           {assignment && (
             <div className="rounded-2xl border bg-white p-4">
-              <p className="text-xs font-semibold text-muted-foreground">Process records</p>
+              <p className="text-xs font-semibold text-muted-foreground">{t('driver.processRecords')}</p>
               <div className="mt-3 space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span>Assigned</span>
+                  <span>{t('driver.recordAssigned')}</span>
                   <span className="text-xs text-muted-foreground">{formatDate(job.expectedPickupDate)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Dispatched</span>
+                  <span>{t('driver.recordDispatched')}</span>
                   <span className="text-xs text-muted-foreground">
                     {assignment.dispatchedAt ? formatDate(assignment.dispatchedAt) : '-'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Delivered</span>
+                  <span>{t('driver.recordDelivered')}</span>
                   <span className="text-xs text-muted-foreground">
                     {assignment.deliveredAt ? formatDate(assignment.deliveredAt) : '-'}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Customer confirmation</span>
+                  <span>{t('driver.recordCustomerConfirm')}</span>
                   <span className="text-xs text-muted-foreground">
                     {confirmation?.approved
-                      ? `Approved (${confirmation.approvedAt ? formatDate(confirmation.approvedAt) : 'now'})`
+                      ? interpolate(t('driver.confirmApproved'), {
+                          time: confirmation.approvedAt
+                            ? formatDate(confirmation.approvedAt)
+                            : t('driver.confirmNow'),
+                        })
                       : confirmation
-                        ? `Waiting (expires ${formatDate(confirmation.expiresAt)})`
+                        ? interpolate(t('driver.confirmWaiting'), {
+                            time: formatDate(confirmation.expiresAt),
+                          })
                         : '-'}
                   </span>
                 </div>
