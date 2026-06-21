@@ -968,6 +968,8 @@ model DriverTask {
   startedAt        DateTime?
   arrivedWarehouseAt DateTime?
   completedAt      DateTime?
+  qrToken          String?          @unique
+  qrExpiresAt      DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -977,6 +979,7 @@ model DriverTask {
 
   @@index([driverId])
   @@index([status])
+  @@index([qrToken])
   @@index([createdAt])
 }
 

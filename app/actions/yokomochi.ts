@@ -38,8 +38,37 @@ import {
 import { factoryMaySubmitResponse } from '@/app/actions/negotiation-chat';
 import { localDayBounds, toLocalDateString } from '@/lib/yokomochi/dates';
 import { normalizeTripScanInput, isTripLegCode } from '@/lib/yokomochi/trip-scan';
+import {
+  generateArrivalToken,
+  getArrivalTokenExpiry,
+  getYokomochiQrPayload,
+} from '@/lib/yokomochi/qr-arrival';
 import { ActionResult } from '@/types';
 import type { Prisma } from '@prisma/client';
+
+export type YokomochiArrivalLookup = {
+  tripId: string;
+  tripCode: string;
+  tripNo: number;
+  totalTrips: number;
+  completedTrips: number;
+  tripStatus: YokomochiTripStatus;
+  orderNo: string;
+  orderId: string;
+  productName: string | null;
+  factoryName: string;
+  destination: string;
+  cargoType: string | null;
+  boxes: number;
+  pallets: number;
+  driverName: string;
+  truckLabel: string | null;
+  taskStatus: string;
+  verificationStatus: string;
+  arrivedWarehouseAt: Date | null;
+  alreadyConfirmed: boolean;
+  qrExpired: boolean;
+};
 
 type Tx = Prisma.TransactionClient;
 
@@ -530,7 +559,7 @@ export async function getDriverActiveYokomochiTask() {
   return prisma.driverTask.findFirst({
     where: { driverId: driver.id, status: { notIn: ['COMPLETED', 'CANCELLED'] } },
     include: { trip: { include: { yokomochiOrder: true } }, truck: true },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { trip: { tripNo: 'asc' } },
   });
 }
 
@@ -674,7 +703,11 @@ export async function updateDriverTaskStatus(
         ...(status === 'ARRIVED_FACTORY' && { arrivedFactoryAt: now }),
         ...(status === 'LOADED_CARGO' && { loadedAt: now }),
         ...(status === 'IN_TRANSIT' && { startedAt: now }),
-        ...(status === 'ARRIVED_WAREHOUSE' && { arrivedWarehouseAt: now }),
+        ...(status === 'ARRIVED_WAREHOUSE' && {
+          arrivedWarehouseAt: now,
+          qrToken: generateArrivalToken(),
+          qrExpiresAt: getArrivalTokenExpiry(48),
+        }),
       },
     });
 
@@ -807,22 +840,239 @@ export async function verifyWarehouseDelivery(input: {
   return { success: true };
 }
 
+const yokomochiArrivalInclude = {
+  yokomochiOrder: {
+    include: {
+      deliveryVerification: true,
+      factoryRequest: {
+        include: {
+          factoryCompany: { select: { name: true } },
+          warehouseCompany: { select: { name: true } },
+        },
+      },
+    },
+  },
+  driverTask: { include: { driver: true, truck: true } },
+} as const;
+
+type YokomochiArrivalTrip = Prisma.YokomochiTripGetPayload<{ include: typeof yokomochiArrivalInclude }>;
+
+async function countCompletedTripsForOrder(orderId: string, tx: Tx | typeof prisma = prisma) {
+  return tx.yokomochiTrip.count({
+    where: {
+      yokomochiOrderId: orderId,
+      status: YokomochiTripStatus.COMPLETED,
+    },
+  });
+}
+
+function mapYokomochiArrivalLookup(
+  trip: YokomochiArrivalTrip,
+  completedTrips: number
+): YokomochiArrivalLookup | null {
+  if (!trip.driverTask) return null;
+
+  const task = trip.driverTask;
+  const order = trip.yokomochiOrder;
+  const qrExpired = task.qrExpiresAt ? task.qrExpiresAt < new Date() : false;
+
+  return {
+    tripId: trip.id,
+    tripCode: trip.tripCode,
+    tripNo: trip.tripNo,
+    totalTrips: order.totalTrips || 1,
+    completedTrips,
+    tripStatus: trip.status,
+    orderNo: order.orderNo,
+    orderId: order.id,
+    productName: order.productName,
+    factoryName: order.factoryRequest?.factoryCompany.name ?? '—',
+    destination: task.destination,
+    cargoType: task.cargoType ?? order.cargoType,
+    boxes: task.boxes,
+    pallets: task.pallets,
+    driverName: task.driver.name,
+    truckLabel: task.truck?.truckNo ?? task.truck?.plateNumber ?? null,
+    taskStatus: task.status,
+    verificationStatus: order.deliveryVerification?.status ?? 'PENDING',
+    arrivedWarehouseAt: task.arrivedWarehouseAt,
+    alreadyConfirmed: task.status === 'COMPLETED',
+    qrExpired,
+  };
+}
+
+async function executeYokomochiTripArrivalVerification(
+  tx: Tx,
+  lookup: Pick<YokomochiArrivalLookup, 'tripId' | 'orderId'>,
+  approved: boolean,
+  options: { verifiedByUserId?: string; approvedBy?: string; notes?: string; customerIp?: string }
+) {
+  const task = await tx.driverTask.findFirst({
+    where: { tripId: lookup.tripId },
+    include: { driver: true, truck: true },
+  });
+  if (!task) throw new Error('Driver task not found');
+
+  await tx.driverTask.update({
+    where: { id: task.id },
+    data: {
+      status: approved ? 'COMPLETED' : 'CANCELLED',
+      completedAt: new Date(),
+      qrToken: null,
+      qrExpiresAt: null,
+    },
+  });
+
+  await tx.yokomochiTrip.update({
+    where: { id: lookup.tripId },
+    data: { status: approved ? YokomochiTripStatus.COMPLETED : YokomochiTripStatus.CANCELLED },
+  });
+
+  if (approved) {
+    await releaseYokomochiFleetResources(tx, {
+      truckId: task.truckId,
+      driverId: task.driverId,
+    });
+  }
+
+  const remaining = await tx.yokomochiTrip.count({
+    where: {
+      yokomochiOrderId: lookup.orderId,
+      status: { notIn: [YokomochiTripStatus.COMPLETED, YokomochiTripStatus.CANCELLED] },
+    },
+  });
+
+  const verificationStatus = approved ? (remaining === 0 ? 'APPROVED' : 'PENDING') : 'REJECTED';
+  const noteParts = [options.notes, options.approvedBy ? `Approved by: ${options.approvedBy}` : null]
+    .filter(Boolean)
+    .join(' · ');
+
+  await tx.deliveryVerification.upsert({
+    where: { yokomochiOrderId: lookup.orderId },
+    create: {
+      yokomochiOrderId: lookup.orderId,
+      status: verificationStatus,
+      verifiedBoxes: task.boxes,
+      verifiedPallets: task.pallets,
+      driverInfo: task.driver.name,
+      truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
+      notes: noteParts || undefined,
+      verifiedAt: new Date(),
+      verifiedByUserId: options.verifiedByUserId ?? undefined,
+    },
+    update: {
+      status: verificationStatus,
+      verifiedBoxes: task.boxes,
+      verifiedPallets: task.pallets,
+      driverInfo: task.driver.name,
+      truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
+      notes: noteParts || undefined,
+      verifiedAt: new Date(),
+      verifiedByUserId: options.verifiedByUserId ?? undefined,
+    },
+  });
+
+  if (approved && remaining === 0) {
+    await tx.yokomochiOrder.update({
+      where: { id: lookup.orderId },
+      data: { status: YokomochiOrderStatus.COMPLETED, completedAt: new Date() },
+    });
+  }
+}
+
+export async function generateYokomochiArrivalQr(
+  taskId: string,
+  baseUrl?: string
+): Promise<ActionResult<{ token: string; url: string }>> {
+  try {
+    const session = await requireRole(['DRIVER']);
+    const driver = await prisma.driver.findFirst({ where: { userId: session.user.id } });
+    if (!driver) return { success: false, error: 'Driver not found' };
+
+    const task = await prisma.driverTask.findFirst({
+      where: { id: taskId, driverId: driver.id, status: 'ARRIVED_WAREHOUSE' },
+    });
+    if (!task) return { success: false, error: 'Trip not ready for warehouse QR' };
+
+    const token = task.qrToken ?? generateArrivalToken();
+    const updated = await prisma.driverTask.update({
+      where: { id: taskId },
+      data: {
+        qrToken: token,
+        qrExpiresAt: getArrivalTokenExpiry(48),
+      },
+    });
+
+    return {
+      success: true,
+      data: { token: updated.qrToken!, url: getYokomochiQrPayload(updated.qrToken!, baseUrl) },
+    };
+  } catch (e) {
+    console.error('generateYokomochiArrivalQr:', e);
+    return { success: false, error: 'Failed to generate QR' };
+  }
+}
+
+export async function lookupYokomochiArrivalByToken(
+  token: string
+): Promise<YokomochiArrivalLookup | null> {
+  const task = await prisma.driverTask.findUnique({
+    where: { qrToken: token },
+    include: {
+      trip: { include: yokomochiArrivalInclude },
+    },
+  });
+  if (!task?.trip.driverTask) return null;
+
+  const completedTrips = await countCompletedTripsForOrder(task.trip.yokomochiOrderId);
+  return mapYokomochiArrivalLookup(task.trip, completedTrips);
+}
+
+export async function confirmYokomochiArrivalByToken(
+  token: string,
+  input: { approvedBy: string; notes?: string; customerIp?: string }
+): Promise<ActionResult> {
+  try {
+    const lookup = await lookupYokomochiArrivalByToken(token);
+    if (!lookup) return { success: false, error: 'Invalid confirmation token' };
+    if (lookup.alreadyConfirmed) return { success: false, error: 'Already confirmed' };
+    if (lookup.qrExpired) return { success: false, error: 'Token expired' };
+
+    const readyForScan =
+      lookup.taskStatus === 'ARRIVED_WAREHOUSE' ||
+      lookup.tripStatus === YokomochiTripStatus.ARRIVED_WAREHOUSE;
+
+    if (!readyForScan) {
+      return {
+        success: false,
+        error: `Driver has not arrived at warehouse yet (current: ${lookup.taskStatus.replace(/_/g, ' ')})`,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await executeYokomochiTripArrivalVerification(tx, lookup, true, {
+        approvedBy: input.approvedBy,
+        notes: input.notes,
+        customerIp: input.customerIp,
+      });
+    });
+
+    revalidatePath('/warehouse');
+    revalidatePath('/factory');
+    revalidatePath('/driver');
+    return { success: true };
+  } catch (e) {
+    console.error('confirmYokomochiArrivalByToken:', e);
+    return { success: false, error: 'Confirmation failed' };
+  }
+}
+
 export async function lookupYokomochiArrival(tripCode: string) {
   const session = await requireRole(['MARUICHI_STAFF']);
   const code = normalizeTripScanInput(tripCode);
   if (!code) return null;
 
   const warehouseCompanyId = session.user.companyId;
-  const include = {
-    yokomochiOrder: {
-      include: {
-        deliveryVerification: true,
-        factoryRequest: { include: { factoryCompany: { select: { name: true } } } },
-      },
-    },
-    driverTask: { include: { driver: true, truck: true } },
-  } as const;
-
   const baseWhere = {
     yokomochiOrder: { factoryRequest: { warehouseCompanyId } },
     driverTask: { isNot: null },
@@ -830,7 +1080,7 @@ export async function lookupYokomochiArrival(tripCode: string) {
 
   let trip = await prisma.yokomochiTrip.findFirst({
     where: { ...baseWhere, tripCode: { equals: code, mode: 'insensitive' } },
-    include,
+    include: yokomochiArrivalInclude,
   });
 
   if (!trip && !isTripLegCode(code)) {
@@ -843,7 +1093,7 @@ export async function lookupYokomochiArrival(tripCode: string) {
         },
         status: YokomochiTripStatus.ARRIVED_WAREHOUSE,
       },
-      include,
+      include: yokomochiArrivalInclude,
       orderBy: { tripNo: 'asc' },
     });
     if (arrivedForOrder.length === 1) {
@@ -853,25 +1103,8 @@ export async function lookupYokomochiArrival(tripCode: string) {
 
   if (!trip?.driverTask) return null;
 
-  return {
-    tripId: trip.id,
-    tripCode: trip.tripCode,
-    tripStatus: trip.status,
-    orderNo: trip.yokomochiOrder.orderNo,
-    orderId: trip.yokomochiOrderId,
-    factoryName: trip.yokomochiOrder.factoryRequest?.factoryCompany.name ?? '—',
-    cargoType: trip.driverTask.cargoType ?? trip.yokomochiOrder.cargoType,
-    boxes: trip.driverTask.boxes,
-    pallets: trip.driverTask.pallets,
-    driverName: trip.driverTask.driver.name,
-    truckLabel:
-      trip.driverTask.truck?.truckNo ??
-      trip.driverTask.truck?.plateNumber ??
-      null,
-    taskStatus: trip.driverTask.status,
-    verificationStatus: trip.yokomochiOrder.deliveryVerification?.status ?? 'PENDING',
-    arrivedWarehouseAt: trip.driverTask.arrivedWarehouseAt,
-  };
+  const completedTrips = await countCompletedTripsForOrder(trip.yokomochiOrderId);
+  return mapYokomochiArrivalLookup(trip, completedTrips);
 }
 
 export async function verifyYokomochiArrivalByTripCode(
@@ -889,7 +1122,7 @@ export async function verifyYokomochiArrivalByTripCode(
         error: 'Trip not found — scan the trip code under the QR (e.g. …-S1-T1), not the order number only',
       };
     }
-    if (lookup.taskStatus === 'COMPLETED') {
+    if (lookup.alreadyConfirmed) {
       return { success: false, error: 'This trip is already verified' };
     }
 
@@ -905,73 +1138,10 @@ export async function verifyYokomochiArrivalByTripCode(
     }
 
     await prisma.$transaction(async (tx) => {
-      const task = await tx.driverTask.findFirst({
-        where: { tripId: lookup.tripId },
-        include: { driver: true, truck: true },
+      await executeYokomochiTripArrivalVerification(tx, lookup, approved, {
+        verifiedByUserId: verifiedByUserId ?? undefined,
+        notes,
       });
-      if (!task) throw new Error('Driver task not found');
-
-      await tx.driverTask.update({
-        where: { id: task.id },
-        data: { status: approved ? 'COMPLETED' : 'CANCELLED', completedAt: new Date() },
-      });
-
-      await tx.yokomochiTrip.update({
-        where: { id: lookup.tripId },
-        data: { status: approved ? YokomochiTripStatus.COMPLETED : YokomochiTripStatus.CANCELLED },
-      });
-
-      if (approved) {
-        await releaseYokomochiFleetResources(tx, {
-          truckId: task.truckId,
-          driverId: task.driverId,
-        });
-      }
-
-      const remaining = await tx.yokomochiTrip.count({
-        where: {
-          yokomochiOrderId: lookup.orderId,
-          status: { notIn: [YokomochiTripStatus.COMPLETED, YokomochiTripStatus.CANCELLED] },
-        },
-      });
-
-      const verificationStatus = approved
-        ? remaining === 0
-          ? 'APPROVED'
-          : 'PENDING'
-        : 'REJECTED';
-
-      await tx.deliveryVerification.upsert({
-        where: { yokomochiOrderId: lookup.orderId },
-        create: {
-          yokomochiOrderId: lookup.orderId,
-          status: verificationStatus,
-          verifiedBoxes: task.boxes,
-          verifiedPallets: task.pallets,
-          driverInfo: task.driver.name,
-          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
-          notes,
-          verifiedAt: new Date(),
-          verifiedByUserId: verifiedByUserId ?? undefined,
-        },
-        update: {
-          status: verificationStatus,
-          verifiedBoxes: task.boxes,
-          verifiedPallets: task.pallets,
-          driverInfo: task.driver.name,
-          truckInfo: task.truck?.truckNo ?? task.truck?.plateNumber ?? undefined,
-          notes,
-          verifiedAt: new Date(),
-          verifiedByUserId: verifiedByUserId ?? undefined,
-        },
-      });
-
-      if (approved && remaining === 0) {
-        await tx.yokomochiOrder.update({
-          where: { id: lookup.orderId },
-          data: { status: YokomochiOrderStatus.COMPLETED, completedAt: new Date() },
-        });
-      }
     });
 
     revalidatePath('/warehouse');

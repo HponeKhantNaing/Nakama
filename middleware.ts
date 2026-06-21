@@ -12,7 +12,8 @@ export default withAuth(
         isPublicRoute(pathname) ||
         pathname.startsWith('/api/auth') ||
         pathname.startsWith('/api/delivery/confirm') ||
-        pathname.startsWith('/api/confirm')
+        pathname.startsWith('/api/confirm') ||
+        pathname.startsWith('/api/yokomochi/confirm')
       ) {
         return NextResponse.next();
       }
@@ -79,6 +80,7 @@ export const config = {
     '/subcontractor/:path*',
     '/driver/:path*',
     '/delivery/confirm/:path*',
+    '/confirm/:path*',
     '/api/transport/:path*',
     '/api/notifications/:path*',
     '/api/upload/:path*',

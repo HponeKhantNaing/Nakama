@@ -586,13 +586,16 @@ const ja: Record<TranslationKey, string> = {
   'yokomochi.defaultCargo': '飲料',
   'yokomochi.palletsBoxesShort': '{pallets}P · {boxes} 箱',
   'yokomochi.cargoLabel': '荷種: {type}',
-  'yokomochi.warehouseQrTitle': '倉庫確認用 QR / バーコード',
-  'yokomochi.warehouseQrHint': '下記のトリップコードをスキャンしてください（上の注文番号ではありません）:',
+  'yokomochi.warehouseQrTitle': '倉庫確認用 QR',
+  'yokomochi.warehouseQrHint': '倉庫担当者にこの QR をスキャンしてもらい、確認ページで承認してください。',
+  'yokomochi.warehouseQrTrip': '便',
+  'yokomochi.warehouseQrLocalhostHint':
+    '倉庫のスマホから開けるよう、ターミナルに表示される Phone URL（npm run dev）でドライバー画面を開いてください。localhost では QR は使えません。',
 
   'yokomochiDriver.title': '横持配送',
   'yokomochiDriver.routeExample': '{origin} → {destination}',
   'yokomochiDriver.warehousePending':
-    '倉庫確認待ち — 倉庫が下記トリップコードをスキャンすると完了します。',
+    '倉庫確認待ち — 倉庫担当者が上記 QR をスキャンするとこの便が完了します。',
   'yokomochiDriver.noTask': '現在の配送タスクはありません',
   'yokomochiDriver.history': '配送履歴',
   'yokomochiDriver.actionArrivedFactory': '工場到着',
@@ -708,6 +711,13 @@ const ja: Record<TranslationKey, string> = {
   'confirm.submitting': '確認中...',
   'confirm.approveDelivery': '配送を承認',
   'confirm.deliveredItems': '配送品目',
+
+  'yokomochiConfirm.title': '倉庫配送確認',
+  'yokomochiConfirm.confirmedTitle': '配送確認完了',
+  'yokomochiConfirm.destination': '配送先',
+  'yokomochiConfirm.yourName': 'お名前',
+  'yokomochiConfirm.approve': '配送を承認',
+  'yokomochiConfirm.tripLeg': '{total} 便中 {current} 便目',
 
   'qrModal.title': '顧客QR — {requestNo}',
   'qrModal.confirmed': '顧客確認済',

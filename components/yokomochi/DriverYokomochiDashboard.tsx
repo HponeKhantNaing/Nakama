@@ -29,7 +29,8 @@ type Task = {
   eta: Date | null;
   trip: {
     tripCode: string;
-    yokomochiOrder: { orderNo: string; productName: string | null };
+    tripNo: number;
+    yokomochiOrder: { orderNo: string; productName: string | null; totalTrips: number };
   };
   truck: { truckNo: string | null; plateNumber: string } | null;
 };
@@ -135,8 +136,11 @@ export function DriverYokomochiDashboard({ task, history }: { task: Task | null;
               {task.status === 'ARRIVED_WAREHOUSE' && (
                 <>
                   <YokomochiWarehouseQRCard
+                    taskId={task.id}
                     tripCode={task.trip.tripCode}
                     orderNo={task.trip.yokomochiOrder.orderNo}
+                    totalTrips={task.trip.yokomochiOrder.totalTrips || 1}
+                    tripNo={task.trip.tripNo}
                   />
                   <p className="text-center text-sm text-muted-foreground">
                     {t('yokomochiDriver.warehousePending')}

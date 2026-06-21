@@ -587,13 +587,16 @@ const en = {
   'yokomochi.defaultCargo': 'Beverages',
   'yokomochi.palletsBoxesShort': '{pallets}P · {boxes} boxes',
   'yokomochi.cargoLabel': 'Cargo: {type}',
-  'yokomochi.warehouseQrTitle': 'Warehouse verification QR / barcode',
-  'yokomochi.warehouseQrHint': 'Scan this trip code (not the order number above):',
+  'yokomochi.warehouseQrTitle': 'Warehouse verification QR',
+  'yokomochi.warehouseQrHint': 'Ask warehouse staff to scan this QR to open the confirmation page.',
+  'yokomochi.warehouseQrTrip': 'Trip',
+  'yokomochi.warehouseQrLocalhostHint':
+    'Open the driver app using the Phone URL from the terminal (npm run dev), not localhost, so warehouse phones can reach this QR.',
 
   'yokomochiDriver.title': 'Yokomochi Delivery',
   'yokomochiDriver.routeExample': '{origin} → {destination}',
   'yokomochiDriver.warehousePending':
-    'Waiting for warehouse — staff will scan the trip code below to complete delivery.',
+    'Waiting for warehouse — staff scan the QR above to confirm this delivery.',
   'yokomochiDriver.noTask': 'No active delivery task',
   'yokomochiDriver.history': 'Delivery History',
   'yokomochiDriver.actionArrivedFactory': 'Arrived at factory',
@@ -712,6 +715,13 @@ const en = {
   'confirm.submitting': 'Confirming...',
   'confirm.approveDelivery': 'Approve Delivery',
   'confirm.deliveredItems': 'Delivered Items',
+
+  'yokomochiConfirm.title': 'Warehouse Delivery Confirmation',
+  'yokomochiConfirm.confirmedTitle': 'Delivery Confirmed',
+  'yokomochiConfirm.destination': 'Destination',
+  'yokomochiConfirm.yourName': 'Your name',
+  'yokomochiConfirm.approve': 'Approve Delivery',
+  'yokomochiConfirm.tripLeg': 'Trip {current} of {total}',
 
   'qrModal.title': 'Customer QR — {requestNo}',
   'qrModal.confirmed': 'Customer confirmed',
