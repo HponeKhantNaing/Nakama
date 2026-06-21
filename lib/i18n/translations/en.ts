@@ -398,6 +398,7 @@ const en = {
   'factory.deliveryFormNo': 'No',
   'factory.approvedBy': 'Approved by',
   'factory.negotiationChat': 'Negotiation Chat',
+  'negotiation.autoRequestMessage':'Request: {boxes} boxes needed by {date}. Please confirm availability via chat before your formal response.',
   'factory.step1Negotiate': 'Step 1 — Negotiate with warehouse',
   'factory.step1NegotiateDesc':
     'Chat first, then submit updated boxes and dates. Formal availability is locked until you send at least one chat message.',

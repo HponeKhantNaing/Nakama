@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { sendNegotiationChatMessage } from '@/app/actions/negotiation-chat';
 import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 import { Send } from 'lucide-react';
 
 type ChatMessage = {
@@ -15,7 +16,22 @@ type ChatMessage = {
   createdAt: Date | string;
   sender: { id: string; name: string; role: string };
 };
-
+//msg
+function renderChatMessage(
+  message: string,
+  t: (key: TranslationKey) => string,
+  formatDate: (date: Date | string) => string
+): string {
+  try {
+    const parsed = JSON.parse(message);
+    if (parsed && typeof parsed === 'object' && parsed.i18nKey) {
+      return interpolate(t(parsed.i18nKey), parsed.params ?? {});
+    }
+  } catch {
+    /* not a system message — render as typed text */
+  }
+  return message;
+}
 export function NegotiationChatPanel({
   orderId,
   orderNo,
@@ -107,7 +123,7 @@ export function NegotiationChatPanel({
                 }
               >
                 <p className="text-[10px] opacity-80">{m.sender.name}</p>
-                <p>{m.message}</p>
+                <p>{renderChatMessage(m.message, t)}</p>
                 <p className="mt-1 text-[10px] opacity-70">{formatDate(m.createdAt)}</p>
               </div>
             </div>

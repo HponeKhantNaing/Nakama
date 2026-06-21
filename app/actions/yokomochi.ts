@@ -173,7 +173,11 @@ export async function createFactoryRequest(
           senderUserId: createdById,
           senderRole: UserRole.MARUICHI_STAFF,
           senderCompanyId: session.user.companyId,
-          message: `Request: ${data.requestedBoxes} boxes needed by ${data.requestedDate}. Please confirm availability via chat before your formal response.`,
+         // message: `Request: ${data.requestedBoxes} boxes needed by ${data.requestedDate}. Please confirm availability via chat before your formal response.`,msg
+          message: JSON.stringify({
+            i18nKey: 'negotiation.autoRequestMessage',
+            params: { boxes: data.requestedBoxes, date: data.requestedDate },
+          }),
         },
       });
 

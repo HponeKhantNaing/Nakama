@@ -400,6 +400,7 @@ const ja: Record<TranslationKey, string> = {
   'factory.deliveryFormNo': '番号',
   'factory.approvedBy': '承認者',
   'factory.negotiationChat': '交渉チャット',
+  'negotiation.autoRequestMessage':'依頼: {date} までに {boxes} 箱が必要です。正式回答前にチャットで在庫確認をお願いします。',
   'factory.step1Negotiate': 'ステップ1 — 倉庫との交渉',
   'factory.step1NegotiateDesc':
     '先にチャットでやり取りし、箱数と日付を送信してください。チャット送信後に正式な在庫回答が可能になります。',
