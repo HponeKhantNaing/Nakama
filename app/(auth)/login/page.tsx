@@ -23,8 +23,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [errorKey, setErrorKey] = useState('');
+  const [successKey, setSuccessKey] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -36,9 +36,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (resetSuccess) {
-      setSuccess(t('auth.passwordResetSuccess'));
+      setSuccessKey('auth.passwordResetSuccess');
     }
-  }, [resetSuccess, t]);
+  }, [resetSuccess]);
 
   function handleRememberMeChange(checked: boolean) {
     setRememberMe(checked);
@@ -48,8 +48,8 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
+    setErrorKey('');
+    setSuccessKey('');
 
     const result = await signIn('credentials', {
       email,
@@ -59,7 +59,7 @@ export default function LoginPage() {
     });
 
     if (result?.error) {
-      setError(t('auth.invalidCredentials'));
+      setErrorKey('auth.invalidCredentials');
       setLoading(false);
     } else {
       router.push(callbackUrl);
@@ -116,8 +116,8 @@ export default function LoginPage() {
                 </Link>
               </p>
             </div>
-            {success && <p className="text-sm text-green-600">{success}</p>}
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {successKey && <p className="text-sm text-green-600">{t(successKey)}</p>}
+            {errorKey && <p className="text-sm text-destructive">{t(errorKey)}</p>}
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? t('auth.signingIn') : t('auth.signIn')}
             </Button>
