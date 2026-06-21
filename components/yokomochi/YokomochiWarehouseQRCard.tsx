@@ -74,6 +74,19 @@ export function YokomochiWarehouseQRCard({
           (scanUrl.includes('localhost') || scanUrl.includes('127.0.0.1')) && (
             <p className="text-xs text-amber-700">{t('yokomochi.warehouseQrLocalhostHint')}</p>
           )}
+        {scanUrl && !scanUrl.includes('localhost') && !scanUrl.includes('127.0.0.1') && (
+          <p className="text-xs text-muted-foreground">{t('yokomochi.warehouseQrPhoneHint')}</p>
+        )}
+        {scanUrl && (
+          <a
+            href={scanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-all text-xs text-primary underline underline-offset-2"
+          >
+            {t('yokomochi.warehouseQrOpenLink')}
+          </a>
+        )}
         <p className="sr-only">{orderNo}</p>
       </CardContent>
     </Card>

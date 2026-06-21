@@ -38,6 +38,7 @@ const child = spawn(process.execPath, [nextCli, 'dev', '-H', '0.0.0.0', '-p', po
   env: {
     ...process.env,
     NEXTAUTH_URL: networkUrl,
+    APP_PUBLIC_URL: networkUrl,
   },
 });
 

@@ -592,6 +592,9 @@ const en = {
   'yokomochi.warehouseQrTrip': 'Trip',
   'yokomochi.warehouseQrLocalhostHint':
     'Open the driver app using the Phone URL from the terminal (npm run dev), not localhost, so warehouse phones can reach this QR.',
+  'yokomochi.warehouseQrPhoneHint':
+    'Phone must be on the same Wi‑Fi as this PC. If the camera scan is slow, tap the link below instead.',
+  'yokomochi.warehouseQrOpenLink': 'Open confirmation page',
 
   'yokomochiDriver.title': 'Yokomochi Delivery',
   'yokomochiDriver.routeExample': '{origin} → {destination}',

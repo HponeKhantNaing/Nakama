@@ -591,6 +591,9 @@ const ja: Record<TranslationKey, string> = {
   'yokomochi.warehouseQrTrip': '便',
   'yokomochi.warehouseQrLocalhostHint':
     '倉庫のスマホから開けるよう、ターミナルに表示される Phone URL（npm run dev）でドライバー画面を開いてください。localhost では QR は使えません。',
+  'yokomochi.warehouseQrPhoneHint':
+    'スマホは PC と同じ Wi‑Fi 接続が必要です。カメラ読取が遅い場合は下のリンクをタップしてください。',
+  'yokomochi.warehouseQrOpenLink': '確認ページを開く',
 
   'yokomochiDriver.title': '横持配送',
   'yokomochiDriver.routeExample': '{origin} → {destination}',
