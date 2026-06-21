@@ -40,8 +40,7 @@ export function CarrierAcceptedPageClient({
       </section>
 
       <p className="text-sm text-muted-foreground">
-        Allocate registered vehicles to accepted jobs. Remaining boxes update as you add trucks and
-        delivery times.
+        {t('carrier.allocationPageDesc')}
       </p>
 
       <CarrierAcceptedAllocationClient jobGroups={jobGroups} drivers={drivers} trucks={trucks} />

@@ -142,8 +142,8 @@ export function YokomochiDeliveryTrackingTable({ rows }: { rows: YokomochiDelive
                     {statusLabel(displayStatus)}
                     {displayStatus === 'ARRIVED_WAREHOUSE' &&
                       (legMeta?.progressVerificationStatus ?? row.verificationStatus) !== 'APPROVED' &&
-                      ' · Awaiting scan'}
-                    {row.taskStatus === 'COMPLETED' && ' · Verified'}
+                      ` · ${t('delivery.awaitingScan')}`}
+                    {row.taskStatus === 'COMPLETED' && ` · ${t('delivery.verified')}`}
                   </Badge>
                 </TrackCell>
                 <TrackCell minWidth="min-w-[180px]">
