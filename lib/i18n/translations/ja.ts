@@ -604,7 +604,9 @@ const ja: Record<TranslationKey, string> = {
   'yokomochi.warehouseQrOpenLink': '確認ページを開く',
 
   'yokomochiDriver.title': '横持配送',
+  'yokomochiDriver.subtitle': 'ルートの各ステップを完了したら更新してください。',
   'yokomochiDriver.routeExample': '{origin} → {destination}',
+  'yokomochiDriver.awaitingScan': '倉庫担当者にQRを見せてスキャンしてもらってください',
   'yokomochiDriver.warehousePending':
     '倉庫確認待ち — 倉庫担当者が上記 QR をスキャンするとこの便が完了します。',
   'yokomochiDriver.noTask': '現在の配送タスクはありません',

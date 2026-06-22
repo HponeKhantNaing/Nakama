@@ -605,7 +605,9 @@ const en = {
   'yokomochi.warehouseQrOpenLink': 'Open confirmation page',
 
   'yokomochiDriver.title': 'Yokomochi Delivery',
+  'yokomochiDriver.subtitle': 'Update each step as you complete the route.',
   'yokomochiDriver.routeExample': '{origin} → {destination}',
+  'yokomochiDriver.awaitingScan': 'Show QR to warehouse staff for scan',
   'yokomochiDriver.warehousePending':
     'Waiting for warehouse — staff scan the QR above to confirm this delivery.',
   'yokomochiDriver.noTask': 'No active delivery task',
