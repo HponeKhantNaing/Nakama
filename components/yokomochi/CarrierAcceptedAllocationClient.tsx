@@ -118,7 +118,8 @@ function OrderAllocationCard({
     }, 0);
   }, [rows, trucks]);
 
-  const remainingBoxes = pendingBoxes - allocatedBoxes;
+  const maxAllocatableBoxes = Math.min(pendingBoxes, group.totalRequestedBoxes);
+  const remainingBoxes = maxAllocatableBoxes - allocatedBoxes;
 
   function driversForRow(rowId: string) {
     const usedInForm = rows
@@ -153,7 +154,32 @@ function OrderAllocationCard({
   }
 
   function updateRow(id: string, patch: Partial<AllocationRow>) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const next = { ...r, ...patch };
+        if (patch.deliveryTimes != null || patch.truckId != null) {
+          const truck = trucks.find((tr) => tr.id === next.truckId);
+          if (truck) {
+            const otherAllocated = prev
+              .filter((row) => row.id !== id && row.truckId)
+              .reduce((sum, row) => {
+                const t = trucks.find((tr) => tr.id === row.truckId);
+                return sum + (t ? calcAllocatedBoxes(t.truckType, row.deliveryTimes) : 0);
+              }, 0);
+            const rowCap = getYokomochiBoxCapacity(truck.truckType);
+            const maxTimesForOrder = Math.max(
+              1,
+              Math.floor((maxAllocatableBoxes - otherAllocated) / rowCap)
+            );
+            if (next.deliveryTimes > maxTimesForOrder) {
+              next.deliveryTimes = Math.max(1, maxTimesForOrder);
+            }
+          }
+        }
+        return next;
+      })
+    );
   }
 
   function applyAllocation() {
@@ -165,6 +191,10 @@ function OrderAllocationCard({
     }
     if (remainingBoxes > 0) {
       setError(`${t('carrier.allocationInsufficient')} (${remainingBoxes} ${t('carrier.boxes')})`);
+      return;
+    }
+    if (allocatedBoxes > maxAllocatableBoxes) {
+      setError(t('carrier.allocationExceedsOrder'));
       return;
     }
     if (pendingTripCount === 0) {
@@ -397,7 +427,7 @@ function OrderAllocationCard({
             <Button
               type="button"
               className="w-full sm:w-auto"
-              disabled={isPending || remainingBoxes > 0}
+              disabled={isPending || remainingBoxes > 0 || allocatedBoxes > maxAllocatableBoxes}
               onClick={applyAllocation}
             >
               {isPending ? t('carrier.applying') : t('carrier.applyAllocation')}

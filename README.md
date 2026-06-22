@@ -36,12 +36,24 @@ docker run --name mtms-postgres \
 npm run db:reset
 
 # 5. Start the app
-npm run dev          # network URL (phone/tablet on same Wi‑Fi)
+npm run dev          # HTTPS + network URL (phone/tablet on same Wi‑Fi — QR camera)
 # or
-npm run dev:local    # http://localhost:3000 only
+npm run dev:local    # http://localhost:3000 only (PC browser)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and log in (see **Demo Accounts** below).
+Open **https://localhost:3000** (or the Phone URL printed in the terminal) and log in (see **Demo Accounts** below).
+
+### Phone / QR camera testing
+
+`npm run dev` starts **HTTPS** so the warehouse QR scanner can use the camera on mobile.
+
+1. Run `npm run dev` on your PC.
+2. On your phone (same Wi‑Fi), open the **Phone:** URL from the terminal (e.g. `https://192.168.x.x:3000`).
+3. If the browser shows a certificate warning, tap **Advanced** → **Proceed** / **Continue** (self-signed dev certificate).
+4. If you see **ERR_SSL_PROTOCOL_ERROR**, stop the server, run `npm run dev` again, and copy the **Phone:** URL exactly (must start with `https://`). If connection fails, try an address under **Other IPs** (use your **Wi-Fi** IP, not `192.168.137.x` hotspot).
+5. Log in as `staff@maruichi.jp` and use **Open QR camera** on Factory Requests.
+
+To run without HTTPS (camera will not work on phone): `$env:DEV_HTTP="1"; npm run dev` (PowerShell).
 
 ### `.env` example
 
@@ -178,6 +190,8 @@ Internal fleet trucks: **WH-10T-A**, **WH-10T-B** (10t, 16 pallets/trip)
 | `Can't reach database server at localhost:5433` | `docker start mtms-postgres` |
 | Login works but actions fail after DB reset | Log out and log back in |
 | Empty truck dropdown on Internal Fleet | `npm run db:reset`, or driver finished trip → trucks released at 倉庫到着 |
+| QR camera says HTTPS required on phone | Use `npm run dev`, open **https://** Phone URL, accept certificate warning |
+| `ERR_SSL_PROTOCOL_ERROR` on phone | Server is HTTP but URL is HTTPS (or wrong IP). Restart `npm run dev` and use the **Phone:** URL from terminal. Try **Wi-Fi** IP if listed under "Other IPs" |
 | APPROVED but no trips | Click **配車便数を計算** on Factory Requests |
 | Factory FK error on create | Re-login as `staff@maruichi.jp` |
 | Prisma EPERM on Windows during reset | Stop `npm run dev`, then run `npm run db:reset` again |

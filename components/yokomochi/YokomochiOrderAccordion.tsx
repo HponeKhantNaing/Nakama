@@ -570,7 +570,7 @@ export function CreateFactoryRequestForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 rounded-xl border bg-white p-4 md:grid-cols-2">
+    <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-white p-3 sm:gap-4 sm:p-4 md:grid-cols-2">
       <div className="space-y-2 md:col-span-2">
         <Label>{t('factory.factory')}</Label>
         <select name="factoryCompanyId" required className="w-full rounded-lg border px-3 py-2 text-sm">
@@ -636,7 +636,11 @@ export function CreateFactoryRequestForm({
       </div>
       {error && <p className="text-sm text-destructive md:col-span-2">{error}</p>}
       <div className="md:col-span-2">
-        <Button type="submit" disabled={isPending || !boxesValid} className="rounded-xl">
+        <Button
+          type="submit"
+          disabled={isPending || !boxesValid}
+          className="h-11 w-full rounded-xl sm:w-auto"
+        >
           {isPending ? t('factory.sending') : t('factory.sendRequest')}
         </Button>
       </div>

@@ -14,6 +14,7 @@ import { DashboardShell, PageHeader } from '@/components/layout/dashboard-shell'
 
 import { warehouseNavItems } from '@/lib/nav/yokomochi';
 
+import { InternalFleetPendingAssignments } from '@/components/yokomochi/InternalFleetPendingAssignments';
 import { DriverTimelineScheduler } from '@/components/yokomochi/DriverTimelineScheduler';
 
 import { DailyDriverResourceCalendar } from '@/components/yokomochi/DailyDriverResourceCalendar';
@@ -26,6 +27,7 @@ import { interpolate } from '@/lib/i18n';
 import { ArrowRight } from 'lucide-react';
 
 import { sameCalendarDate } from '@/lib/yokomochi/dates';
+import { getTodayDateString } from '@/lib/yokomochi/date-picker-rules';
 
 
 
@@ -155,9 +157,15 @@ export function WarehouseInternalFleetClient({
 
               type="date"
 
+              min={getTodayDateString()}
+
               value={date}
 
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next && next < getTodayDateString()) return;
+                setDate(next);
+              }}
 
               className="w-44"
 
@@ -187,7 +195,7 @@ export function WarehouseInternalFleetClient({
 
         <DailyDriverResourceCalendar date={date} drivers={drivers} schedules={schedules} />
 
-
+        <InternalFleetPendingAssignments schedules={schedules} />
 
         <DriverTimelineScheduler
 

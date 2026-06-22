@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { getCarrierEligibleTrips, countInternalFleetTrips } from '@/lib/yokomochi/carrier-allocation';
 import { CarrierResponseForm } from '@/components/yokomochi/CarrierResponseForm';
 import { cn } from '@/lib/utils';
+import { toLocalDateString } from '@/lib/yokomochi/dates';
 import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -126,7 +127,16 @@ export function CarrierRequestAccordion({ requests }: { requests: CarrierRequest
                     )}
                   </div>
                 ) : req.status === 'PENDING' ? (
-                  <CarrierResponseForm requestId={req.id} suggestedTrips={suggestedTrips} />
+                  <CarrierResponseForm
+                    requestId={req.id}
+                    suggestedTrips={suggestedTrips}
+                    deliveryDate={toLocalDateString(
+                      req.deliveryDate ??
+                        req.yokomochiOrder.deliverySchedules?.[0]?.deliveryDate ??
+                        fr?.requestedDate ??
+                        new Date()
+                    )}
+                  />
                 ) : null}
               </div>
             )}

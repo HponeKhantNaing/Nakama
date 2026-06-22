@@ -37,7 +37,7 @@ import {
 } from '@/lib/yokomochi/pallet-capacity';
 import { factoryMaySubmitResponse } from '@/app/actions/negotiation-chat';
 import { localDayBounds, toLocalDateString } from '@/lib/yokomochi/dates';
-import { normalizeTripScanInput, isTripLegCode } from '@/lib/yokomochi/trip-scan';
+import { normalizeTripScanInput, isTripLegCode, parseYokomochiScanPayload } from '@/lib/yokomochi/trip-scan';
 import {
   generateArrivalToken,
   getArrivalTokenExpiry,
@@ -1028,11 +1028,40 @@ export async function lookupYokomochiArrivalByToken(
   return mapYokomochiArrivalLookup(task.trip, completedTrips);
 }
 
+export async function verifyYokomochiArrivalFromScan(
+  rawPayload: string
+): Promise<ActionResult & { tripCode?: string }> {
+  try {
+    const session = await requireRole(['MARUICHI_STAFF']);
+    const parsed = parseYokomochiScanPayload(rawPayload);
+    if (!parsed) {
+      return { success: false, error: 'Invalid QR code — scan the driver warehouse QR' };
+    }
+
+    if (parsed.kind === 'token') {
+      const result = await confirmYokomochiArrivalByToken(parsed.token, {
+        approvedBy: session.user.name ?? 'Warehouse Staff',
+      });
+      if (!result.success) return result;
+      const lookup = await lookupYokomochiArrivalByToken(parsed.token);
+      return { success: true, tripCode: lookup?.tripCode };
+    }
+
+    const result = await verifyYokomochiArrivalByTripCode(parsed.tripCode, true);
+    if (!result.success) return result;
+    return { success: true, tripCode: parsed.tripCode };
+  } catch (e) {
+    console.error('verifyYokomochiArrivalFromScan:', e);
+    return { success: false, error: 'Scan verification failed' };
+  }
+}
+
 export async function confirmYokomochiArrivalByToken(
   token: string,
   input: { approvedBy: string; notes?: string; customerIp?: string }
 ): Promise<ActionResult> {
   try {
+    await requireRole(['MARUICHI_STAFF']);
     const lookup = await lookupYokomochiArrivalByToken(token);
     if (!lookup) return { success: false, error: 'Invalid confirmation token' };
     if (lookup.alreadyConfirmed) return { success: false, error: 'Already confirmed' };
@@ -1353,6 +1382,92 @@ export async function assignInternalFleetTrip(input: z.infer<typeof scheduleSche
   } catch (e) {
     console.error('assignInternalFleetTrip:', e);
     return { success: false, error: 'Failed to assign trip' };
+  }
+}
+
+export async function cancelYokomochiDriverAssignment(
+  tripId: string
+): Promise<ActionResult> {
+  try {
+    const session = await requireRole(['MARUICHI_STAFF', 'SHINWA_STAFF']);
+
+    const trip = await prisma.yokomochiTrip.findUnique({
+      where: { id: tripId },
+      include: {
+        driverTask: true,
+        internalFleetAssignment: true,
+        yokomochiOrder: { include: { factoryRequest: true } },
+      },
+    });
+
+    if (!trip?.driverTask) {
+      return { success: false, error: 'No driver assignment found for this trip' };
+    }
+
+    if (trip.driverTask.status !== 'ASSIGNED') {
+      return {
+        success: false,
+        error: 'Cannot cancel after the driver has started the delivery',
+      };
+    }
+
+    const isInternal = !!trip.internalFleetAssignment || trip.status === 'INTERNAL_ASSIGNED';
+    const isCarrier = trip.carrierCompanyId != null;
+
+    if (session.user.role === 'SHINWA_STAFF') {
+      if (!isCarrier || trip.carrierCompanyId !== session.user.companyId) {
+        return { success: false, error: 'Not authorized to cancel this assignment' };
+      }
+      if (trip.status !== YokomochiTripStatus.DRIVER_ASSIGNED) {
+        return { success: false, error: 'Trip is not awaiting driver acceptance' };
+      }
+    } else if (session.user.role === 'MARUICHI_STAFF') {
+      const warehouseId = trip.yokomochiOrder.factoryRequest?.warehouseCompanyId;
+      if (warehouseId && warehouseId !== session.user.companyId) {
+        return { success: false, error: 'Not authorized to cancel this assignment' };
+      }
+      if (!isInternal && trip.status !== YokomochiTripStatus.DRIVER_ASSIGNED) {
+        return { success: false, error: 'Trip is not awaiting driver acceptance' };
+      }
+      if (isInternal && trip.status !== YokomochiTripStatus.INTERNAL_ASSIGNED) {
+        return { success: false, error: 'Trip is not awaiting driver acceptance' };
+      }
+    }
+
+    const driverId = trip.driverTask.driverId;
+    const truckId = trip.driverTask.truckId;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.driverTask.delete({ where: { id: trip.driverTask!.id } });
+      await tx.driverSchedule.deleteMany({ where: { tripId } });
+      await tx.internalFleetAssignment.deleteMany({ where: { tripId } });
+
+      if (isInternal) {
+        await tx.yokomochiTrip.update({
+          where: { id: tripId },
+          data: { status: YokomochiTripStatus.PLANNED },
+        });
+      } else {
+        await tx.yokomochiTrip.update({
+          where: { id: tripId },
+          data: { status: YokomochiTripStatus.CARRIER_ASSIGNED },
+        });
+      }
+
+      await releaseYokomochiFleetResources(tx, { driverId, truckId });
+    });
+
+    await syncCarrierRequestRemainingTrips(trip.yokomochiOrderId);
+
+    revalidatePath('/warehouse');
+    revalidatePath('/warehouse/internal-fleet');
+    revalidatePath('/carrier');
+    revalidatePath('/carrier/accepted');
+    revalidatePath('/driver');
+    return { success: true };
+  } catch (e) {
+    console.error('cancelYokomochiDriverAssignment:', e);
+    return { success: false, error: 'Failed to cancel assignment' };
   }
 }
 

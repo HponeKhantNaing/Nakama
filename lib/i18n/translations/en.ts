@@ -18,6 +18,7 @@ const en = {
   'common.inUse': 'In Use',
   'common.onTrip': 'On Trip',
   'common.optional': 'optional',
+  'common.tapToExpand': 'Tap to expand',
   'common.connected': 'Connected',
   'common.disconnected': 'Disconnected',
   'common.save': 'Save',
@@ -73,6 +74,7 @@ const en = {
   'warehouse.deducts': 'Deducts',
   'warehouse.assignTripToTimeline': 'Assign Trip to Timeline',
   'warehouse.assignTripHint': 'Pick driver first — truck is suggested automatically. Each trip block uses',
+  'warehouse.assignHourHint': 'Choose the assignment start hour (8:00–16:00).',
   'warehouse.assignToSchedule': 'Assign to Schedule',
   'warehouse.assignTripLoad': 'This trip load',
   'warehouse.insufficientPallets': 'Not enough pallets remaining for this assignment',
@@ -324,6 +326,8 @@ const en = {
   'delivery.verified': 'Verified',
   'delivery.scanArrivalTitle': 'Warehouse Arrival Verification',
   'delivery.scanArrivalDesc': 'Scan or enter the trip barcode when cargo arrives. Driver shows this code on their dashboard.',
+  'delivery.scanArrivalDescMobile':
+    'When the driver arrives, tap Open QR camera and scan the code on their phone.',
   'delivery.lookup': 'Lookup',
   'delivery.approveArrival': 'Approve Arrival',
   'delivery.rejectArrival': 'Reject',
@@ -331,7 +335,7 @@ const en = {
   'delivery.confirmArrivalTitle': 'Confirm Arrived Order',
   'delivery.confirmArrivalDesc': 'Verify that this cargo has arrived at the destination.',
   'delivery.confirmArrival': 'Confirm',
-  'delivery.scanHint': 'Scan the driver QR or type the trip code — a confirmation dialog will open.',
+  'delivery.scanHint': 'Scan the driver QR or type the trip code, then tap Lookup.',
   'delivery.historyTitle': 'Delivery History',
   'delivery.historyDesc': 'Past deliveries never disappear. Search and filter above.',
   'delivery.noHistoryRows': 'No history rows found.',
@@ -418,6 +422,7 @@ const en = {
   'factory.availablePallets': 'Available Pallets',
   'factory.availableBoxes': 'Available Boxes',
   'factory.availableDate': 'Available Date',
+  'factory.requestedDate': 'Warehouse requested date',
   'factory.nextDeliveryDate': 'Next delivery date (only if boxes < requested)',
   'factory.partialDelivery': 'Partial delivery (auto-detected)',
   'factory.partialDeliveryDetail':
@@ -688,6 +693,45 @@ const en = {
   'scan.tripPlaceholder': 'YM-20260619-XXXXX-S1-T1',
   'scan.notReady': 'Not ready for warehouse scan — driver status: {status}',
   'scan.verificationFailed': 'Verification failed',
+  'scan.openCamera': 'Open QR camera',
+  'scan.closeCamera': 'Close camera',
+  'scan.requestingCamera': 'Requesting camera…',
+  'scan.cameraPermissionHint':
+    'When you tap Open QR camera, your browser will ask for camera permission — please tap Allow.',
+  'scan.cameraPermissionDenied':
+    'Camera permission was denied. Open your browser site settings, allow camera access for this page, then try again.',
+  'scan.cameraNotFound': 'No camera found on this device.',
+  'scan.cameraInUse': 'Camera is in use by another app. Close it and try again.',
+  'scan.cameraUnsupported': 'Camera is not supported in this browser. Use manual entry below.',
+  'scan.cameraRequiresHttps':
+    'Camera requires HTTPS. Restart with npm run dev, open the https:// Phone URL from the terminal, and accept the certificate warning on your phone.',
+  'scan.cameraFailed': 'Could not start the camera. Check permissions or use manual entry below.',
+  'scan.manualFallback': 'Manual code entry',
+  'scan.approvedTrip': '{tripCode} — arrival approved ✓',
+  'scan.approvedGeneric': 'Arrival approved ✓',
+  'scan.pointAtDriverQr': 'Point the camera at the driver QR code',
+
+  'datePicker.earlierDateTitle': 'Earlier delivery date',
+  'datePicker.earlierDateDesc':
+    'You selected {selected}, which is before the {referenceLabel} ({reference}). The delivery date will be updated to the earlier date.',
+  'datePicker.confirmEarlierDate': 'Use earlier date',
+  'datePicker.requestedDelivery': 'warehouse requested date',
+
+  'assignment.cancel': 'Cancel assignment',
+  'assignment.cancelConfirm':
+    'Cancel this driver assignment? You can reassign another driver or hour.',
+  'assignment.cancelFailed': 'Failed to cancel assignment',
+  'assignment.pendingAcceptance': 'Awaiting driver acceptance',
+  'assignment.pendingAcceptanceHint':
+    'Cancel here to change driver, truck, or hour before the driver starts.',
+
+  'carrier.estimatedPickupHour': 'Estimated pickup hour',
+  'carrier.pickupHourHint': 'Date is fixed to the delivery schedule — select pickup hour only.',
+  'carrier.fixedDeliveryDateHint': 'Delivery date is set by the warehouse schedule and cannot be changed here.',
+  'carrier.fleetAllocationLaterHint':
+    'Truck and driver assignment is done in Fleet Allocation Engine after you accept.',
+  'carrier.deliveryDateRequired': 'Delivery date is missing on this request.',
+  'carrier.allocationExceedsOrder': 'Allocated boxes exceed total order boxes.',
 
   'carrier.capacity10t': '10t: 16 pallets = 256 boxes / trip',
   'carrier.capacity4t': '4t: 5 pallets = 80 boxes / trip',

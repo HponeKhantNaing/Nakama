@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from '@/lib/i18n/context';
+import { CancelAssignmentButton } from '@/components/yokomochi/CancelAssignmentButton';
 import type { CarrierAcceptedJobGroup } from '@/app/actions/carrier-fleet';
 
 export type AssignedTripRow = CarrierAcceptedJobGroup['trips'][number] & {
@@ -82,8 +83,11 @@ export function CarrierAssignedTripsTable({ groups }: { groups: CarrierAcceptedJ
                 <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t('table.status')}
                 </th>
-                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <th className="border-r border-border/40 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {t('carrier.assignedAt')}
+                </th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('common.actions')}
                 </th>
               </tr>
             </thead>
@@ -135,8 +139,15 @@ export function CarrierAssignedTripsTable({ groups }: { groups: CarrierAcceptedJ
                         {statusLabel(task.status)}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                    <td className="border-r border-border/30 px-3 py-2 text-xs text-muted-foreground">
                       {formatDate(task.createdAt)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {task.status === 'ASSIGNED' ? (
+                        <CancelAssignmentButton tripId={trip.id} />
+                      ) : (
+                        '—'
+                      )}
                     </td>
                   </tr>
                 );

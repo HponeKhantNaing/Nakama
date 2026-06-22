@@ -17,11 +17,12 @@ import {
   SHIFT_DURATION_HOURS,
   type ScheduleEntry,
 } from '@/lib/yokomochi/schedule-conflicts';
+import { PICKUP_HOURS } from '@/lib/yokomochi/date-picker-rules';
 import { useTranslation } from '@/lib/i18n/context';
 import { cn } from '@/lib/utils';
 
 const DEFAULT_START_HOUR = 8;
-const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+const HOURS = [...PICKUP_HOURS];
 
 type Driver = { id: string; name: string };
 type Truck = {
@@ -65,6 +66,7 @@ export function DriverTimelineScheduler({
   const [selectedTrip, setSelectedTrip] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
   const [selectedTruck, setSelectedTruck] = useState('');
+  const [startHour, setStartHour] = useState(DEFAULT_START_HOUR);
   const [error, setError] = useState('');
 
   const truckById = useMemo(() => new Map(trucks.map((truck) => [truck.id, truck])), [trucks]);
@@ -99,22 +101,22 @@ export function DriverTimelineScheduler({
 
   const availableTrucks = useMemo(() => {
     if (!selectedDriver) return trucks;
-    return getAvailableTrucksAtHour(trucks, selectedDriver, DEFAULT_START_HOUR, scheduleEntries);
-  }, [trucks, selectedDriver, scheduleEntries]);
+    return getAvailableTrucksAtHour(trucks, selectedDriver, startHour, scheduleEntries);
+  }, [trucks, selectedDriver, startHour, scheduleEntries]);
 
   useEffect(() => {
     if (!selectedDriver) return;
     const trucksAtHour = getAvailableTrucksAtHour(
       trucks,
       selectedDriver,
-      DEFAULT_START_HOUR,
+      startHour,
       scheduleEntries
     );
     if (trucksAtHour.length === 0) return;
     if (!selectedTruck || !trucksAtHour.some((tr) => tr.id === selectedTruck)) {
       setSelectedTruck(trucksAtHour[0].id);
     }
-  }, [selectedDriver, selectedTruck, trucks, scheduleEntries]);
+  }, [selectedDriver, selectedTruck, trucks, scheduleEntries, startHour]);
 
   function assign() {
     if (!selectedTrip || !selectedDriver || !selectedTruck) return;
@@ -137,7 +139,7 @@ export function DriverTimelineScheduler({
       return;
     }
 
-    const start = new Date(`${date}T${String(DEFAULT_START_HOUR).padStart(2, '0')}:00:00`);
+    const start = new Date(`${date}T${String(startHour).padStart(2, '0')}:00:00`);
     const end = new Date(start);
     end.setHours(end.getHours() + SHIFT_DURATION_HOURS);
 
@@ -203,9 +205,9 @@ export function DriverTimelineScheduler({
         <div className="rounded-xl border bg-white p-4">
           <p className="mb-3 text-sm font-semibold">{t('warehouse.assignTripToTimeline')}</p>
           <p className="mb-3 text-xs text-muted-foreground">
-            {t('warehouse.assignTripHint')} {SHIFT_DURATION_HOURS}h.
+            {t('warehouse.assignTripHint')} {SHIFT_DURATION_HOURS}h. {t('warehouse.assignHourHint')}
           </p>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <select
               className="rounded-lg border px-3 py-2 text-sm"
               value={selectedTrip}
@@ -215,6 +217,20 @@ export function DriverTimelineScheduler({
               {unassignedTrips.map((trip) => (
                 <option key={trip.id} value={trip.id}>
                   {trip.tripCode} ({trip.pallets}p)
+                </option>
+              ))}
+            </select>
+            <select
+              className="rounded-lg border px-3 py-2 text-sm"
+              value={startHour}
+              onChange={(e) => {
+                setStartHour(Number(e.target.value));
+                setSelectedTruck('');
+              }}
+            >
+              {HOURS.map((hour) => (
+                <option key={hour} value={hour}>
+                  {String(hour).padStart(2, '0')}:00
                 </option>
               ))}
             </select>

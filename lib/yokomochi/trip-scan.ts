@@ -13,6 +13,28 @@ export function normalizeTripScanInput(raw: string): string {
   return (match?.[0] ?? trimmed).toUpperCase();
 }
 
+export function extractYokomochiArrivalToken(raw: string): string | null {
+  const trimmed = raw.trim();
+  const match = trimmed.match(/\/confirm\/yokomochi\/([a-f0-9]+)/i);
+  return match?.[1] ?? null;
+}
+
+export type YokomochiScanPayload =
+  | { kind: 'token'; token: string }
+  | { kind: 'tripCode'; tripCode: string };
+
+export function parseYokomochiScanPayload(raw: string): YokomochiScanPayload | null {
+  const token = extractYokomochiArrivalToken(raw);
+  if (token) return { kind: 'token', token };
+
+  const tripCode = normalizeTripScanInput(raw);
+  if (tripCode && /^YM-/i.test(tripCode)) {
+    return { kind: 'tripCode', tripCode };
+  }
+
+  return null;
+}
+
 export function isTripLegCode(code: string): boolean {
   return /-S\d+-T\d+$/i.test(code);
 }

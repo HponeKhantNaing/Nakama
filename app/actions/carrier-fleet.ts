@@ -458,7 +458,7 @@ export async function applyCarrierFleetAllocation(
         carrierCompanyId: session.user.companyId,
         status: YokomochiTripStatus.CARRIER_ASSIGNED,
       },
-      include: { yokomochiOrder: true },
+      include: { yokomochiOrder: { include: { factoryRequest: true } } },
       orderBy: { tripNo: 'asc' },
     });
 
@@ -528,6 +528,24 @@ export async function applyCarrierFleetAllocation(
 
     const totalPendingBoxes = pendingTrips.reduce((sum, t) => sum + t.boxes, 0);
     const totalAllocatedBoxes = slots.reduce((sum, s) => sum + s.boxes, 0);
+
+    const orderTotalBoxes =
+      pendingTrips[0].yokomochiOrder.factoryRequest?.requestedBoxes ??
+      pendingTrips.reduce((sum, t) => sum + t.boxes, 0);
+
+    if (totalAllocatedBoxes > orderTotalBoxes) {
+      return {
+        success: false,
+        error: `Allocated boxes (${totalAllocatedBoxes}) exceed total order boxes (${orderTotalBoxes})`,
+      };
+    }
+
+    if (totalAllocatedBoxes > totalPendingBoxes) {
+      return {
+        success: false,
+        error: `Allocated boxes (${totalAllocatedBoxes}) exceed pending trip boxes (${totalPendingBoxes})`,
+      };
+    }
 
     if (totalAllocatedBoxes < totalPendingBoxes) {
       return {

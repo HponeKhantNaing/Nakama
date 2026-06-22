@@ -12,6 +12,7 @@ import {
   lastRenegotiationAt,
 } from '@/lib/yokomochi/negotiation-chat-gate';
 import { toLocalDateString } from '@/lib/yokomochi/dates';
+import { ScheduleDateInput } from '@/components/yokomochi/ScheduleDateInput';
 import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
 
@@ -215,25 +216,24 @@ export function FactoryAvailabilityForm({
                   }}
                 />
               </div>
-              <div>
-                <Label>{t('factory.availableDate')}</Label>
-                <Input
-                  type="date"
-                  required
-                  disabled={!factoryChatReady}
-                  value={availableDate}
-                  onChange={(e) => setAvailableDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>{t('factory.nextDeliveryDate')}</Label>
-                <Input
-                  type="date"
-                  value={nextAvailableDate}
-                  disabled={!factoryChatReady || !isPartialOffer}
-                  onChange={(e) => setNextAvailableDate(e.target.value)}
-                />
-              </div>
+              <ScheduleDateInput
+                id="available-date"
+                label={t('factory.availableDate')}
+                value={availableDate}
+                disabled={!factoryChatReady}
+                referenceDate={toLocalDateString(selectedOrder.factoryRequest.requestedDate)}
+                referenceLabel={t('factory.requestedDate')}
+                onChange={setAvailableDate}
+              />
+              <ScheduleDateInput
+                id="next-available-date"
+                label={t('factory.nextDeliveryDate')}
+                value={nextAvailableDate}
+                disabled={!factoryChatReady || !isPartialOffer}
+                referenceDate={toLocalDateString(selectedOrder.factoryRequest.requestedDate)}
+                referenceLabel={t('factory.requestedDate')}
+                onChange={setNextAvailableDate}
+              />
 
               <div
                 className={`rounded-lg border px-3 py-2 text-xs ${

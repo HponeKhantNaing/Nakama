@@ -20,6 +20,7 @@ const ja: Record<TranslationKey, string> = {
   'common.inUse': '使用中',
   'common.onTrip': '配送中',
   'common.optional': '任意',
+  'common.tapToExpand': 'タップして開く',
   'common.connected': '接続中',
   'common.disconnected': '切断',
   'common.save': '保存',
@@ -75,6 +76,7 @@ const ja: Record<TranslationKey, string> = {
   'warehouse.deducts': '減算',
   'warehouse.assignTripToTimeline': 'タイムラインへ便を割当',
   'warehouse.assignTripHint': '先にドライバーを選択 — 車両は自動提案されます。1ブロックあたり',
+  'warehouse.assignHourHint': '割当開始時刻を選択してください（8:00〜16:00）。',
   'warehouse.assignToSchedule': 'スケジュールに割当',
   'warehouse.assignTripLoad': 'この便の積載',
   'warehouse.insufficientPallets': '残りパレット数が不足しています',
@@ -326,6 +328,8 @@ const ja: Record<TranslationKey, string> = {
   'delivery.verified': '確認済',
   'delivery.scanArrivalTitle': '倉庫到着確認（スキャン）',
   'delivery.scanArrivalDesc': '荷物到着時にトリップコードをスキャンまたは入力してください。ドライバー画面にQRが表示されます。',
+  'delivery.scanArrivalDescMobile':
+    'ドライバー到着後、「QRカメラを開く」をタップして、ドライバーのQRを読み取ってください。',
   'delivery.lookup': '検索',
   'delivery.approveArrival': '到着を承認',
   'delivery.rejectArrival': '拒否',
@@ -420,6 +424,7 @@ const ja: Record<TranslationKey, string> = {
   'factory.availablePallets': '提供可能パレット',
   'factory.availableBoxes': '提供可能箱数',
   'factory.availableDate': '提供可能日',
+  'factory.requestedDate': '倉庫希望日',
   'factory.nextDeliveryDate': '次回配送日（依頼箱数より少ない場合のみ）',
   'factory.partialDelivery': '分納（自動判定）',
   'factory.partialDeliveryDetail':
@@ -685,6 +690,45 @@ const ja: Record<TranslationKey, string> = {
   'scan.tripPlaceholder': 'YM-20260619-XXXXX-S1-T1',
   'scan.notReady': '倉庫スキャンの準備ができていません — ドライバーステータス: {status}',
   'scan.verificationFailed': '確認に失敗しました',
+  'scan.openCamera': 'QRカメラを開く',
+  'scan.closeCamera': 'カメラを閉じる',
+  'scan.requestingCamera': 'カメラを要求中…',
+  'scan.cameraPermissionHint':
+    '「QRカメラを開く」をタップすると、ブラウザがカメラの許可を求めます。「許可」をタップしてください。',
+  'scan.cameraPermissionDenied':
+    'カメラの許可が拒否されました。ブラウザのサイト設定でこのページのカメラを許可してから、もう一度お試しください。',
+  'scan.cameraNotFound': 'この端末にカメラが見つかりません。',
+  'scan.cameraInUse': 'カメラは他のアプリで使用中です。終了してから再度お試しください。',
+  'scan.cameraUnsupported': 'このブラウザではカメラを利用できません。下の手入力をご利用ください。',
+  'scan.cameraRequiresHttps':
+    'カメラにはHTTPSが必要です。npm run dev で起動し、ターミナルの https:// Phone URL を開き、証明書の警告を許可してください。',
+  'scan.cameraFailed': 'カメラを起動できませんでした。権限を確認するか、下の手入力をご利用ください。',
+  'scan.manualFallback': '手入力',
+  'scan.approvedTrip': '{tripCode} — 到着承認済み ✓',
+  'scan.approvedGeneric': '到着承認済み ✓',
+  'scan.pointAtDriverQr': 'ドライバーのQRコードにカメラを向けてください',
+
+  'datePicker.earlierDateTitle': '希望日より早い日付',
+  'datePicker.earlierDateDesc':
+    '{selected} を選択しました。{referenceLabel}（{reference}）より早い日付です。配送日を早い日付に更新します。',
+  'datePicker.confirmEarlierDate': '早い日付で確定',
+  'datePicker.requestedDelivery': '倉庫希望日',
+
+  'assignment.cancel': '割当取消',
+  'assignment.cancelConfirm':
+    'このドライバー割当を取消しますか？別のドライバーや時間に再割当できます。',
+  'assignment.cancelFailed': '割当の取消に失敗しました',
+  'assignment.pendingAcceptance': 'ドライバー承認待ち',
+  'assignment.pendingAcceptanceHint':
+    'ドライバーが開始する前なら、ここで取消して再割当できます。',
+
+  'carrier.estimatedPickupHour': '集荷予定時刻',
+  'carrier.pickupHourHint': '日付は配送スケジュール固定 — 時刻のみ選択',
+  'carrier.fixedDeliveryDateHint': '配送日は倉庫スケジュールで固定され、ここでは変更できません。',
+  'carrier.fleetAllocationLaterHint':
+    '車両・ドライバー割当は受諾後のフリート配車エンジンで行います。',
+  'carrier.deliveryDateRequired': 'この依頼に配送日がありません。',
+  'carrier.allocationExceedsOrder': '割当箱数が注文総箱数を超えています。',
 
   'carrier.capacity10t': '10t: 16パレット = 256箱 / 便',
   'carrier.capacity4t': '4t: 5パレット = 80箱 / 便',

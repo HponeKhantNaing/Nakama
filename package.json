@@ -42,6 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html5-qrcode": "^2.3.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
     "mapbox-gl": "^3.9.0",
@@ -74,6 +75,7 @@
     "eslint-config-next": "14.2.21",
     "postcss": "^8.4.49",
     "prisma": "^6.1.0",
+    "selfsigned": "^5.5.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
