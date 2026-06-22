@@ -19,8 +19,7 @@ type ChatMessage = {
 //msg
 function renderChatMessage(
   message: string,
-  t: (key: TranslationKey) => string,
-  formatDate: (date: Date | string) => string
+  t: (key: TranslationKey) => string
 ): string {
   try {
     const parsed = JSON.parse(message);

@@ -74,6 +74,7 @@ const ja: Record<TranslationKey, string> = {
   'warehouse.assignTripToTimeline': 'タイムラインへ便を割当',
   'warehouse.assignTripHint': '先にドライバーを選択 — 車両は自動提案されます。1ブロックあたり',
   'warehouse.assignToSchedule': 'スケジュールに割当',
+  'warehouse.assignTripLoad': 'この便の積載',
   'warehouse.insufficientPallets': '残りパレット数が不足しています',
   'warehouse.invalidTruck': '選択した車両が見つかりません',
   'warehouse.palletsLabel': 'パレット',

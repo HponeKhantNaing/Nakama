@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { TruckType } from '@prisma/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { assignInternalFleetTrip } from '@/app/actions/yokomochi';
 import {
   calcRemainingInventory,
   getTruckPalletLimit,
   INTERNAL_FLEET_BOXES_PER_PALLET,
+  sumTripInventory,
 } from '@/lib/yokomochi/internal-fleet-counters';
 import {
   getAvailableTrucksAtHour,
@@ -66,19 +65,19 @@ export function DriverTimelineScheduler({
   const [selectedTrip, setSelectedTrip] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
   const [selectedTruck, setSelectedTruck] = useState('');
-  const [assignDeliveryTimes, setAssignDeliveryTimes] = useState(1);
   const [error, setError] = useState('');
 
   const truckById = useMemo(() => new Map(trucks.map((truck) => [truck.id, truck])), [trucks]);
 
-  const slotsForCounter = useMemo(() => {
-    if (!selectedDriver || !selectedTruck) return [];
-    return [{ truckId: selectedTruck, deliveryTimes: assignDeliveryTimes }];
-  }, [selectedDriver, selectedTruck, assignDeliveryTimes]);
-
+  // Counters reflect unassigned trip inventory only — not in-progress form selections.
   const inventory = useMemo(
-    () => calcRemainingInventory(unassignedTrips, slotsForCounter, truckById),
-    [unassignedTrips, slotsForCounter, truckById]
+    () => calcRemainingInventory(unassignedTrips, [], truckById),
+    [unassignedTrips, truckById]
+  );
+
+  const selectedTripEntity = useMemo(
+    () => unassignedTrips.find((trip) => trip.id === selectedTrip),
+    [unassignedTrips, selectedTrip]
   );
 
   const scheduleEntries: ScheduleEntry[] = useMemo(
@@ -129,10 +128,11 @@ export function DriverTimelineScheduler({
     }
 
     const tripPallets = trip?.pallets ?? getTruckPalletLimit(truck);
+    const available = sumTripInventory(unassignedTrips);
 
-    if (inventory.remainingPallets < tripPallets) {
+    if (available.pallets < tripPallets) {
       setError(
-        `${t('warehouse.insufficientPallets')} (${inventory.remainingPallets}P, need ${tripPallets}P)`
+        `${t('warehouse.insufficientPallets')} (${available.pallets}P, need ${tripPallets}P)`
       );
       return;
     }
@@ -154,7 +154,6 @@ export function DriverTimelineScheduler({
         setError(result.error ?? t('warehouse.assignFailed'));
         return;
       }
-      setAssignDeliveryTimes((prev) => (prev > 1 ? prev - 1 : 1));
       onAssigned?.();
       router.refresh();
     });
@@ -206,7 +205,7 @@ export function DriverTimelineScheduler({
           <p className="mb-3 text-xs text-muted-foreground">
             {t('warehouse.assignTripHint')} {SHIFT_DURATION_HOURS}h.
           </p>
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-3">
             <select
               className="rounded-lg border px-3 py-2 text-sm"
               value={selectedTrip}
@@ -247,18 +246,13 @@ export function DriverTimelineScheduler({
                 </option>
               ))}
             </select>
-            <div className="space-y-1">
-              <Label className="text-xs">{t('carrier.deliveryTimes')}</Label>
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                value={assignDeliveryTimes}
-                disabled={!selectedDriver}
-                onChange={(e) => setAssignDeliveryTimes(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
           </div>
+          {selectedTripEntity && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t('warehouse.assignTripLoad')}: {selectedTripEntity.boxes ?? selectedTripEntity.pallets * INTERNAL_FLEET_BOXES_PER_PALLET}{' '}
+              {t('carrier.boxes')} / {selectedTripEntity.pallets}P
+            </p>
+          )}
           {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
           <Button
             className="mt-3 rounded-xl"
@@ -267,8 +261,8 @@ export function DriverTimelineScheduler({
               !selectedTrip ||
               !selectedDriver ||
               !selectedTruck ||
-              inventory.remainingPallets < 0 ||
-              inventory.remainingBoxes < 0
+              (selectedTripEntity != null &&
+                inventory.remainingPallets < selectedTripEntity.pallets)
             }
             onClick={assign}
           >

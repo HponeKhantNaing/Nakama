@@ -13,11 +13,11 @@ import { DeliveryTimeline } from '@/components/driver-dashboard/DeliveryTimeline
 import { CustomerQRCard } from '@/components/driver-dashboard/CustomerQRCard';
 import { ProofOfDeliveryModal } from '@/components/driver-dashboard/ProofOfDeliveryModal';
 import { useGpsSimulation } from '@/hooks/useGpsSimulation';
+import { useOfflineActionQueue } from '@/hooks/useOfflineActionQueue';
 import { decodePolyline } from '@/lib/tms/routing';
 import { updateAssignmentStatus, recordAssignmentProgress, rejectTruckAssignment } from '@/app/actions/fleet';
 import { updateDeliveryStatus } from '@/app/actions/transport';
 import { interpolate } from '@/lib/i18n';
-import { useTranslation } from '@/lib/i18n/context';
 import type { LatLng } from '@/lib/tms/routing';
 import { cn, statusColor } from '@/lib/utils';
 import { MapPin, Package, Phone, ChevronDown, ChevronUp } from 'lucide-react';

@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthPageShell } from '@/components/layout/auth-page-shell';
 import { useTranslation } from '@/lib/i18n/context';
+import type { TranslationKey } from '@/lib/i18n';
 
 const REMEMBER_ME_KEY = 'mtms-remember-me';
 
@@ -23,8 +24,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const [errorKey, setErrorKey] = useState('');
-  const [successKey, setSuccessKey] = useState('');
+  const [errorKey, setErrorKey] = useState<TranslationKey | ''>('');
+  const [successKey, setSuccessKey] = useState<TranslationKey | ''>('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

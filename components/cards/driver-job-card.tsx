@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { TrackingMap } from '@/components/maps/tracking-map-wrapper';
 import { useGpsSimulation } from '@/hooks/useGpsSimulation';
 import { decodePolyline } from '@/lib/tms/routing';
-import { cn } from '@/lib/utils';
+import { cn, statusColor } from '@/lib/utils';
 import { interpolate } from '@/lib/i18n';
 import { MapPin, Package, User, Navigation } from 'lucide-react';
 import { AppLogo } from '@/components/ui/app-logo';

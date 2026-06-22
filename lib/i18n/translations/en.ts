@@ -72,6 +72,7 @@ const en = {
   'warehouse.assignTripToTimeline': 'Assign Trip to Timeline',
   'warehouse.assignTripHint': 'Pick driver first — truck is suggested automatically. Each trip block uses',
   'warehouse.assignToSchedule': 'Assign to Schedule',
+  'warehouse.assignTripLoad': 'This trip load',
   'warehouse.insufficientPallets': 'Not enough pallets remaining for this assignment',
   'warehouse.invalidTruck': 'Selected truck not found',
   'warehouse.palletsLabel': 'Pallets',
