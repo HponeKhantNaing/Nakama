@@ -3,8 +3,6 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 const TRUCK_TYPE_MAP: Record<string, string> = {
-  KEI_TRUCK: 'BANN',
-  SMALL_TRUCK_2T: 'SMALL',
   MEDIUM_TRUCK_4T: 'MEDIUM',
   LARGE_TRUCK_10T: 'TEN_TON',
   REFRIGERATED: 'MEDIUM',

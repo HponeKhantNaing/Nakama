@@ -54,15 +54,11 @@ const applyAllocationSchema = z.object({
 const DEFAULT_WEIGHT: Record<TruckType, number> = {
   TEN_TON: 10000,
   MEDIUM: 4000,
-  SMALL: 2500,
-  BANN: 350,
 };
 
 const DEFAULT_VOLUME: Record<TruckType, number> = {
   TEN_TON: 40,
   MEDIUM: 16,
-  SMALL: 8,
-  BANN: 2,
 };
 
 export async function getCarrierFleetDirectory() {

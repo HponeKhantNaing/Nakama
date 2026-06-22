@@ -36,8 +36,6 @@ export function isValidGpsPing(ping: GpsPing): boolean {
 
 export function estimateFuelLiters(distanceKm: number, truckType?: string): number {
   const consumptionPer100Km: Record<string, number> = {
-    BANN: 8,
-    SMALL: 12,
     MEDIUM: 18,
     TEN_TON: 28,
   };

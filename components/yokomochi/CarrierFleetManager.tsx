@@ -219,12 +219,10 @@ export function CarrierFleetManager({
                 name="truckType"
                 className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm"
                 defaultValue={TruckType.TEN_TON}
-              >
-                <option value={TruckType.TEN_TON}>{truckLabel(TruckType.TEN_TON)}</option>
-                <option value={TruckType.MEDIUM}>{truckLabel(TruckType.MEDIUM)}</option>
-                <option value={TruckType.SMALL}>{truckLabel(TruckType.SMALL)}</option>
-                <option value={TruckType.BANN}>{truckLabel(TruckType.BANN)}</option>
-              </select>
+               >
+                 <option value={TruckType.TEN_TON}>{truckLabel(TruckType.TEN_TON)}</option>
+                 <option value={TruckType.MEDIUM}>{truckLabel(TruckType.MEDIUM)}</option>
+               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">

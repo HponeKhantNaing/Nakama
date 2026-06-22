@@ -50,10 +50,8 @@ enum DeliveryPriority {
 }
 
 enum TruckType {
-  SMALL
   MEDIUM
   TEN_TON
-  BANN
 }
 
 enum AssignmentStatus {

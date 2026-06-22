@@ -16,8 +16,6 @@ export type YokomochiVehicleCapacity = {
 export const YOKOMOCHI_VEHICLE_CAPACITY: Record<TruckType, YokomochiVehicleCapacity> = {
   TEN_TON: { boxes: TEN_TON_BOXES, pallets: TEN_TON_PALLETS, label: '10-ton Large Truck (10t)' },
   MEDIUM: { boxes: FOUR_TON_BOXES, pallets: FOUR_TON_PALLETS, label: '4-ton Medium Truck (4t)' },
-  SMALL: { boxes: 5, pallets: 1, label: 'Van (Small)' },
-  BANN: { boxes: 5, pallets: 1, label: 'Van (Small)' },
 };
 
 export function getYokomochiBoxCapacity(truckType: TruckType): number {

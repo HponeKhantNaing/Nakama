@@ -148,26 +148,6 @@ async function main() {
     });
   }
 
-  for (let i = 1; i <= 3; i++) {
-    const truckNum = `SHINWA-SMALL-${i}`;
-    await prisma.truck.upsert({
-      where: { truckNumber: truckNum },
-      update: {},
-      create: {
-        truckNumber: truckNum,
-        truckNo: truckNum,
-        truckType: TruckType.SMALL,
-        plateNumber: `品川501あ${i}`,
-        capacityWeightKg: 2500,
-        capacityVolumeM3: 8,
-        maxBoxes: 24,
-        maxPallet: 6,
-        status: TruckStatus.AVAILABLE,
-        companyId: shinwa.id,
-      },
-    });
-  }
-
   await prisma.user.upsert({
     where: { email: 'staff@maruichi.jp' },
     update: {},

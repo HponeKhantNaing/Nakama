@@ -162,10 +162,8 @@ const en = {
   'status.CANCELLED': 'Cancelled',
   'status.CUSTOMER_CONFIRMED': 'Customer Confirmed',
 
-  'truck.BANN': 'Ban Car (5 boxes)',
-  'truck.SMALL': '2–3T Truck',
-  'truck.MEDIUM': '4T Truck',
-  'truck.TEN_TON': '10T Truck (96 boxes)',
+  'truck.MEDIUM': '4T Truck (5 pallets / 80 boxes)',
+  'truck.TEN_TON': '10T Truck (16 pallets / 256 boxes)',
   'vehicle.SMALL_TRUCK': 'Small Truck',
   'vehicle.MEDIUM_TRUCK': 'Medium Truck',
   'vehicle.LARGE_TRUCK': 'Large Truck',

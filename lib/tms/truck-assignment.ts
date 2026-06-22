@@ -9,10 +9,8 @@ export interface TruckSpec {
 }
 
 export const TRUCK_SPECS: TruckSpec[] = [
-  { type: TruckType.BANN, capacityWeightKg: 350, capacityVolumeM3: 2, maxBoxes: 5, label: 'Ban Car (5 boxes)' },
-  { type: TruckType.SMALL, capacityWeightKg: 2500, capacityVolumeM3: 8, maxBoxes: 24, label: '2–3T Truck' },
-  { type: TruckType.MEDIUM, capacityWeightKg: 4000, capacityVolumeM3: 16, maxBoxes: 40, label: '4T Truck' },
-  { type: TruckType.TEN_TON, capacityWeightKg: 10000, capacityVolumeM3: 40, maxBoxes: 96, label: '10T Truck (96 boxes)' },
+  { type: TruckType.MEDIUM, capacityWeightKg: 4000, capacityVolumeM3: 16, maxBoxes: 80, label: '4T Truck (5 pallets)' },
+  { type: TruckType.TEN_TON, capacityWeightKg: 10000, capacityVolumeM3: 40, maxBoxes: 256, label: '10T Truck (16 pallets)' },
 ];
 
 export function getTruckSpec(type: TruckType): TruckSpec {
@@ -41,8 +39,6 @@ export interface AssignmentPlan {
 }
 
 const ASSIGNABLE_TYPES: TruckType[] = [
-  TruckType.BANN,
-  TruckType.SMALL,
   TruckType.MEDIUM,
   TruckType.TEN_TON,
 ];
@@ -202,10 +198,9 @@ export function planDeliverySplit(
 
 export function truckTypeFromLegacyVehicle(vehicleType: string): TruckType {
   const map: Record<string, TruckType> = {
-    SMALL_TRUCK: TruckType.SMALL,
-    MEDIUM_TRUCK: TruckType.MEDIUM,
     LARGE_TRUCK: TruckType.TEN_TON,
     TRAILER: TruckType.TEN_TON,
+    MEDIUM_TRUCK: TruckType.MEDIUM,
     REFRIGERATED: TruckType.MEDIUM,
   };
   return map[vehicleType] ?? TruckType.MEDIUM;

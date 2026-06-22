@@ -164,10 +164,8 @@ const ja: Record<TranslationKey, string> = {
   'status.CANCELLED': 'キャンセル',
   'status.CUSTOMER_CONFIRMED': '顧客確認済',
 
-  'truck.BANN': 'バン車（5箱）',
-  'truck.SMALL': '2〜3t車',
-  'truck.MEDIUM': '4t車',
-  'truck.TEN_TON': '10t車（96箱）',
+  'truck.MEDIUM': '4t車（5パレット / 80箱）',
+  'truck.TEN_TON': '10t車（16パレット / 256箱）',
   'vehicle.SMALL_TRUCK': '小型トラック',
   'vehicle.MEDIUM_TRUCK': '中型トラック',
   'vehicle.LARGE_TRUCK': '大型トラック',
