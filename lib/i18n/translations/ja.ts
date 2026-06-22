@@ -57,6 +57,8 @@ const ja: Record<TranslationKey, string> = {
   'nav.logout': 'ログアウト',
   'nav.factoryRequests': '工場依頼',
   'nav.negotiations': '交渉',
+  'nav.deliveryTracking': '配送ステータス追跡',
+  'nav.orderHistory': '注文履歴',
   'nav.internalFleet': '自社フリート',
   'warehouse.stockRemaining': '残り在庫数',
   'warehouse.palletsRemaining': '残りパレット数',

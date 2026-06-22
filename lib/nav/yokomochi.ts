@@ -11,6 +11,9 @@ export const warehouseNavItems: { href: string; labelKey: TranslationKey }[] = [
 
 export const factoryNavItems: { href: string; labelKey: TranslationKey }[] = [
   { href: '/factory/requests', labelKey: 'nav.factoryRequests' },
+  { href: '/factory/negotiation', labelKey: 'nav.negotiations' },
+  { href: '/factory/tracking', labelKey: 'nav.deliveryTracking' },
+  { href: '/factory/history', labelKey: 'nav.orderHistory' },
 ];
 
 export const carrierNavItems: { href: string; labelKey: TranslationKey }[] = [

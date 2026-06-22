@@ -55,6 +55,8 @@ const en = {
   'nav.logout': 'Sign out',
   'nav.factoryRequests': 'Factory Requests',
   'nav.negotiations': 'Negotiations',
+  'nav.deliveryTracking': 'Delivery Status Tracking',
+  'nav.orderHistory': 'Order History',
   'nav.internalFleet': 'Internal Fleet',
   'warehouse.stockRemaining': 'Total Stock Remaining',
   'warehouse.palletsRemaining': 'Total Pallets Remaining',

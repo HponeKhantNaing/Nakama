@@ -5,7 +5,7 @@ import { factoryNavItems } from '@/lib/nav/yokomochi';
 import { YokomochiOrderAccordion } from '@/components/yokomochi/YokomochiOrderAccordion';
 import { useTranslation } from '@/lib/i18n/context';
 
-export function FactoryRequestsClient({
+export function FactoryHistoryClient({
   orders,
 }: {
   orders: any[];
@@ -14,8 +14,8 @@ export function FactoryRequestsClient({
 
   return (
     <DashboardShell titleKey="dashboard.factory" navItems={factoryNavItems}>
-      <PageHeader titleKey="nav.factoryRequests" />
-      <YokomochiOrderAccordion orders={orders} mode="factory" />
+      <PageHeader titleKey="nav.orderHistory" />
+      <YokomochiOrderAccordion orders={orders} mode="history" />
     </DashboardShell>
   );
 }
