@@ -36,12 +36,14 @@ export function NegotiationChatPanel({
   orderNo,
   initialMessages,
   viewerRole,
+  readOnly = false,
   onMessagesChange,
 }: {
   orderId: string;
   orderNo: string;
   initialMessages: ChatMessage[];
   viewerRole: 'MARUICHI_STAFF' | 'FACTORY_STAFF';
+  readOnly?: boolean;
   onMessagesChange?: (messages: ChatMessage[]) => void;
 }) {
   const { t, formatDate } = useTranslation();
@@ -64,6 +66,7 @@ export function NegotiationChatPanel({
   }, [messages, onMessagesChange]);
 
   useEffect(() => {
+    if (readOnly) return;
     const es = new EventSource(`/api/negotiation/${orderId}/stream?since=${lastTsRef.current ?? ''}`);
     es.onmessage = (ev) => {
       try {
@@ -87,7 +90,7 @@ export function NegotiationChatPanel({
       }
     };
     return () => es.close();
-  }, [orderId]);
+  }, [orderId, readOnly]);
 
   function send() {
     const msg = text.trim();
@@ -103,7 +106,9 @@ export function NegotiationChatPanel({
       <div className="border-b px-3 py-2">
         <p className="text-sm font-semibold">{t('factory.negotiationChat')}</p>
         <p className="text-xs text-muted-foreground">
-          {interpolate(t('factory.chatSubtitle'), { orderNo })}
+          {readOnly
+            ? t('history.negotiationArchive')
+            : interpolate(t('factory.chatSubtitle'), { orderNo })}
         </p>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto p-3">
@@ -130,22 +135,24 @@ export function NegotiationChatPanel({
         })}
         <div ref={bottomRef} />
       </div>
-      <div className="flex gap-2 border-t p-2">
-        <Input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t('factory.chatPlaceholder')}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              send();
-            }
-          }}
-        />
-        <Button size="icon" disabled={isPending} onClick={send} aria-label={t('common.send')}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex gap-2 border-t p-2">
+          <Input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t('factory.chatPlaceholder')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                send();
+              }
+            }}
+          />
+          <Button size="icon" disabled={isPending} onClick={send} aria-label={t('common.send')}>
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

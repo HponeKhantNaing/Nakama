@@ -52,15 +52,20 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.email = user.email ?? undefined;
+        token.name = user.name ?? undefined;
         token.role = user.role;
         token.companyId = user.companyId;
         token.companyName = user.companyName;
         const maxAge = user.rememberMe ? SESSION_LONG_SECONDS : SESSION_SHORT_SECONDS;
         token.exp = Math.floor(Date.now() / 1000) + maxAge;
+      }
+      if (trigger === 'update' && session && typeof session === 'object' && 'name' in session) {
+        const nextName = (session as { name?: string }).name;
+        if (nextName) token.name = nextName;
       }
       return token;
     },
@@ -75,11 +80,13 @@ export const authOptions: NextAuthOptions = {
 
         if (dbUser?.isActive) {
           session.user.id = dbUser.id;
+          session.user.name = dbUser.name;
           session.user.role = dbUser.role;
           session.user.companyId = dbUser.companyId;
           session.user.companyName = dbUser.company.name;
         } else if (token.id) {
           session.user.id = token.id as string;
+          session.user.name = (token.name as string | undefined) ?? session.user.name;
           session.user.role = token.role;
           session.user.companyId = token.companyId;
           session.user.companyName = token.companyName;

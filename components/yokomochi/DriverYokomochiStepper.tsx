@@ -19,14 +19,16 @@ const STEP_LABEL_KEYS = [
 
 export function DriverYokomochiStepper({ status }: { status: string }) {
   const { t } = useTranslation();
-  const currentIndex = getDriverTaskStepIndex(status);
+  const isComplete = status === 'COMPLETED';
   const isCancelled = status === 'CANCELLED';
+  const stepIndex = getDriverTaskStepIndex(status);
+  const currentIndex = isComplete ? DRIVER_TASK_STEPS.length : stepIndex;
 
   return (
     <ol className="space-y-0" aria-label={t('delivery.progress')}>
       {DRIVER_TASK_STEPS.map((step, index) => {
-        const done = !isCancelled && index < currentIndex;
-        const active = !isCancelled && index === currentIndex;
+        const done = !isCancelled && (index < currentIndex || isComplete);
+        const active = !isCancelled && !isComplete && index === stepIndex;
         const upcoming = !done && !active;
         const isLast = index === DRIVER_TASK_STEPS.length - 1;
 
@@ -36,7 +38,8 @@ export function DriverYokomochiStepper({ status }: { status: string }) {
               <div
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-colors',
-                  done && 'border-primary bg-primary text-primary-foreground',
+                  done && isComplete && isLast && 'border-emerald-500 bg-emerald-500 text-white',
+                  done && !(isComplete && isLast) && 'border-primary bg-primary text-primary-foreground',
                   active && 'border-primary bg-primary/10 text-primary ring-4 ring-primary/15',
                   upcoming && 'border-muted-foreground/25 bg-muted/30 text-muted-foreground'
                 )}
@@ -46,8 +49,8 @@ export function DriverYokomochiStepper({ status }: { status: string }) {
               {!isLast && (
                 <div
                   className={cn(
-                    'my-1 w-0.5 flex-1 min-h-[20px] rounded-full',
-                    done ? 'bg-primary' : 'bg-border'
+                    'my-1 min-h-[20px] w-0.5 flex-1 rounded-full',
+                    done ? (isComplete ? 'bg-emerald-500' : 'bg-primary') : 'bg-border'
                   )}
                 />
               )}
@@ -57,7 +60,8 @@ export function DriverYokomochiStepper({ status }: { status: string }) {
                 className={cn(
                   'text-sm font-semibold leading-tight',
                   active && 'text-primary',
-                  done && 'text-foreground',
+                  done && isComplete && isLast && 'text-emerald-700',
+                  done && !(isComplete && isLast) && 'text-foreground',
                   upcoming && 'text-muted-foreground'
                 )}
               >

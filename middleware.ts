@@ -79,6 +79,8 @@ export const config = {
     '/shinwa/:path*',
     '/subcontractor/:path*',
     '/driver/:path*',
+    '/profile',
+    '/profile/:path*',
     '/delivery/confirm/:path*',
     '/confirm/:path*',
     '/api/transport/:path*',

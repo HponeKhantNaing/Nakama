@@ -13,6 +13,8 @@ import { handleNegotiation, verifyWarehouseDelivery, confirmOrderTrips } from '@
 import { calculateTripsFromPallets } from '@/lib/yokomochi/trip-calculation';
 import { ChevronDown, ChevronRight, ArrowRight, Truck } from 'lucide-react';
 import { BusinessDeliveryCalendar } from '@/components/yokomochi/BusinessDeliveryCalendar';
+import { DeliveryHistoryDetail } from '@/components/yokomochi/DeliveryHistoryDetail';
+import { NegotiationChatPanel } from '@/components/yokomochi/NegotiationChatPanel';
 import {
   formatPalletsDisplay,
   isValidOrderBoxQuantity,
@@ -36,6 +38,7 @@ type Order = {
   cargoType: string | null;
   productName: string | null;
   createdAt: Date;
+  completedAt?: Date | null;
   factoryRequest: {
     requestedPallets: number;
     requestedBoxes: number;
@@ -67,7 +70,34 @@ type Order = {
     status: string;
   }[];
   negotiationHistory: { action: string; message: string | null; createdAt: Date }[];
-  trips?: { id: string; tripNo: number; tripCode: string; pallets: number; status: string }[];
+  negotiationChatMessages?: {
+    id: string;
+    message: string;
+    createdAt: Date;
+    sender: { id: string; name: string; role: string };
+  }[];
+  trips?: {
+    id: string;
+    tripNo: number;
+    tripCode: string;
+    pallets: number;
+    boxes: number;
+    status: string;
+    driverTask?: {
+      status: string;
+      boxes: number;
+      pallets: number;
+      pickupLocation: string;
+      destination: string;
+      arrivedFactoryAt: Date | null;
+      loadedAt: Date | null;
+      startedAt: Date | null;
+      arrivedWarehouseAt: Date | null;
+      completedAt: Date | null;
+      driver: { name: string; phone: string | null };
+      truck: { plateNumber: string | null } | null;
+    } | null;
+  }[];
   deliveryVerification?: { status: string; notes: string | null } | null;
   deliveryForm?: { deliveryNo: string; approvedBy: string | null } | null;
 };
@@ -119,9 +149,11 @@ const DEFAULT_ORDER_GRID =
 export function YokomochiOrderAccordion({
   orders,
   mode,
+  negotiationViewerRole = 'MARUICHI_STAFF',
 }: {
   orders: Order[];
   mode: 'warehouse' | 'factory' | 'negotiations' | 'history';
+  negotiationViewerRole?: 'MARUICHI_STAFF' | 'FACTORY_STAFF';
 }) {
   const router = useRouter();
   const { t, formatDate: formatLocaleDate, statusLabel } = useTranslation();
@@ -517,6 +549,21 @@ export function YokomochiOrderAccordion({
                     </p>
                   </div>
                 )}
+
+                {mode === 'history' && order.status === 'COMPLETED' && (
+                  <DeliveryHistoryDetail order={order} />
+                )}
+
+                {mode === 'history' &&
+                  (order.negotiationChatMessages?.length ?? 0) > 0 && (
+                    <NegotiationChatPanel
+                      orderId={order.id}
+                      orderNo={order.orderNo}
+                      initialMessages={order.negotiationChatMessages ?? []}
+                      viewerRole={negotiationViewerRole}
+                      readOnly
+                    />
+                  )}
               </div>
             )}
           </div>

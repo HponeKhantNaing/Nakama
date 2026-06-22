@@ -15,7 +15,7 @@ export function FactoryHistoryClient({
   return (
     <DashboardShell titleKey="dashboard.factory" navItems={factoryNavItems}>
       <PageHeader titleKey="nav.orderHistory" />
-      <YokomochiOrderAccordion orders={orders} mode="history" />
+      <YokomochiOrderAccordion orders={orders} mode="history" negotiationViewerRole="FACTORY_STAFF" />
     </DashboardShell>
   );
 }

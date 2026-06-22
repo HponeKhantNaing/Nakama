@@ -10,6 +10,7 @@ import {
   CompanyType,
   UserRole,
   CarrierRequestStatus,
+  NotificationType,
 } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { requireRole, resolveSessionUserId } from '@/lib/session';
@@ -45,6 +46,7 @@ import {
 } from '@/lib/yokomochi/qr-arrival';
 import { ActionResult } from '@/types';
 import type { Prisma } from '@prisma/client';
+import { notifyYokomochiParties } from '@/lib/notifications';
 
 export type YokomochiArrivalLookup = {
   tripId: string;
@@ -213,6 +215,14 @@ export async function createFactoryRequest(
       return yokomochiOrder;
     });
 
+    await notifyYokomochiParties(order.id, {
+      type: NotificationType.NEW_REQUEST,
+      title: 'New factory request',
+      message: `Order ${orderNo}: ${data.requestedBoxes} boxes requested`,
+      targets: { factory: true },
+      metadata: { href: '/factory/negotiation' },
+    });
+
     revalidatePath('/warehouse');
     revalidatePath('/factory');
     return { success: true, data: order };
@@ -331,6 +341,14 @@ export async function submitFactoryResponse(
       });
     });
 
+    await notifyYokomochiParties(data.yokomochiOrderId, {
+      type: NotificationType.STATUS_UPDATE,
+      title: 'Factory response received',
+      message: `Factory submitted ${data.negotiationStatus} availability`,
+      targets: { warehouse: true },
+      metadata: { href: '/warehouse/negotiations' },
+    });
+
     revalidatePath('/warehouse');
     revalidatePath('/factory');
     return { success: true };
@@ -420,6 +438,20 @@ export async function handleNegotiation(
       }
     });
 
+    const negotiationMessages: Record<string, string> = {
+      APPROVE: 'Warehouse approved the negotiation',
+      REJECT: 'Warehouse rejected the negotiation',
+      REQUEST_AGAIN: 'Warehouse requested renegotiation',
+    };
+
+    await notifyYokomochiParties(yokomochiOrderId, {
+      type: action === 'REJECT' ? NotificationType.ORDER_REJECTED : NotificationType.ORDER_ACCEPTED,
+      title: 'Negotiation update',
+      message: negotiationMessages[action] ?? 'Negotiation updated',
+      targets: { factory: true },
+      metadata: { href: '/factory/negotiation' },
+    });
+
     revalidatePath('/warehouse');
     revalidatePath('/factory');
     return { success: true };
@@ -500,6 +532,10 @@ export async function getWarehouseYokomochiOrders() {
       factoryNegotiation: true,
       deliverySchedules: { orderBy: { scheduleNo: 'asc' } },
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
+      negotiationChatMessages: {
+        include: { sender: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
       trips: {
         orderBy: { tripNo: 'asc' },
         include: {
@@ -530,6 +566,10 @@ export async function getFactoryYokomochiOrders() {
       factoryNegotiation: true,
       deliverySchedules: { orderBy: { scheduleNo: 'asc' } },
       negotiationHistory: { orderBy: { createdAt: 'desc' } },
+      negotiationChatMessages: {
+        include: { sender: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'asc' },
+      },
       trips: {
         orderBy: { tripNo: 'asc' },
         include: {
@@ -541,6 +581,8 @@ export async function getFactoryYokomochiOrders() {
           },
         },
       },
+      deliveryVerification: true,
+      deliveryForm: true,
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -750,6 +792,29 @@ export async function updateDriverTaskStatus(
     }
   });
 
+  const statusMessages: Record<typeof status, string> = {
+    ARRIVED_FACTORY: 'Driver arrived at factory',
+    LOADED_CARGO: 'Cargo loaded',
+    IN_TRANSIT: 'In transit to warehouse',
+    ARRIVED_WAREHOUSE: 'Arrived at warehouse — awaiting verification',
+  };
+
+  await notifyYokomochiParties(task.trip.yokomochiOrderId, {
+    type: NotificationType.STATUS_UPDATE,
+    title: 'Delivery status update',
+    message: `${driver.name}: ${statusMessages[status]}`,
+    targets: {
+      warehouse: true,
+      factory: status === 'ARRIVED_WAREHOUSE',
+    },
+    metadata: {
+      href:
+        status === 'ARRIVED_WAREHOUSE'
+          ? '/warehouse/factory-requests'
+          : '/factory/tracking',
+    },
+  });
+
   revalidatePath('/driver');
   revalidatePath('/warehouse');
   revalidatePath('/factory');
@@ -833,6 +898,22 @@ export async function verifyWarehouseDelivery(input: {
       });
     }
   });
+
+  if (input.approved) {
+    const order = await prisma.yokomochiOrder.findUnique({
+      where: { id: input.yokomochiOrderId },
+      select: { orderNo: true, status: true },
+    });
+    if (order?.status === YokomochiOrderStatus.COMPLETED) {
+      await notifyYokomochiParties(input.yokomochiOrderId, {
+        type: NotificationType.DELIVERY_COMPLETE,
+        title: 'Delivery complete',
+        message: `Order ${order.orderNo} has been verified and completed`,
+        targets: { warehouse: true, factory: true },
+        metadata: { href: '/factory/history' },
+      });
+    }
+  }
 
   revalidatePath('/warehouse');
   revalidatePath('/factory');
@@ -1086,6 +1167,28 @@ export async function confirmYokomochiArrivalByToken(
       });
     });
 
+    const order = await prisma.yokomochiOrder.findUnique({
+      where: { id: lookup.orderId },
+      select: { orderNo: true, status: true },
+    });
+    if (order?.status === YokomochiOrderStatus.COMPLETED) {
+      await notifyYokomochiParties(lookup.orderId, {
+        type: NotificationType.DELIVERY_COMPLETE,
+        title: 'Delivery complete',
+        message: `Order ${order.orderNo} has been verified and completed`,
+        targets: { warehouse: true, factory: true },
+        metadata: { href: '/factory/history' },
+      });
+    } else {
+      await notifyYokomochiParties(lookup.orderId, {
+        type: NotificationType.ARRIVED_AT_DESTINATION,
+        title: 'Trip verified',
+        message: `Trip ${lookup.tripCode} arrival confirmed`,
+        targets: { warehouse: true, factory: true },
+        metadata: { href: '/warehouse/factory-requests' },
+      });
+    }
+
     revalidatePath('/warehouse');
     revalidatePath('/factory');
     revalidatePath('/driver');
@@ -1172,6 +1275,30 @@ export async function verifyYokomochiArrivalByTripCode(
         notes,
       });
     });
+
+    if (approved) {
+      const order = await prisma.yokomochiOrder.findUnique({
+        where: { id: lookup.orderId },
+        select: { orderNo: true, status: true },
+      });
+      if (order?.status === YokomochiOrderStatus.COMPLETED) {
+        await notifyYokomochiParties(lookup.orderId, {
+          type: NotificationType.DELIVERY_COMPLETE,
+          title: 'Delivery complete',
+          message: `Order ${order.orderNo} has been verified and completed`,
+          targets: { warehouse: true, factory: true },
+          metadata: { href: '/factory/history' },
+        });
+      } else {
+        await notifyYokomochiParties(lookup.orderId, {
+          type: NotificationType.ARRIVED_AT_DESTINATION,
+          title: 'Trip verified',
+          message: `Trip ${lookup.tripCode} arrival confirmed`,
+          targets: { warehouse: true, factory: true },
+          metadata: { href: '/warehouse/factory-requests' },
+        });
+      }
+    }
 
     revalidatePath('/warehouse');
     revalidatePath('/factory');
@@ -1374,6 +1501,20 @@ export async function assignInternalFleetTrip(input: z.infer<typeof scheduleSche
 
     await syncCarrierRequestRemainingTrips(tripMeta.yokomochiOrderId);
 
+    const driver = await prisma.driver.findUnique({
+      where: { id: data.driverId },
+      select: { userId: true, name: true },
+    });
+    if (driver?.userId) {
+      await notifyYokomochiParties(tripMeta.yokomochiOrderId, {
+        type: NotificationType.DRIVER_ASSIGNED,
+        title: 'New delivery assigned',
+        message: 'You have been assigned an internal fleet trip',
+        targets: { driverUserId: driver.userId },
+        metadata: { href: '/driver/active-job' },
+      });
+    }
+
     revalidatePath('/warehouse');
     revalidatePath('/warehouse/internal-fleet');
     revalidatePath('/carrier');
@@ -1559,6 +1700,14 @@ export async function sendCarrierRequest(
       });
     });
 
+    await notifyYokomochiParties(yokomochiOrderId, {
+      type: NotificationType.NEW_REQUEST,
+      title: 'New carrier request',
+      message: `${eligible.length} trip(s) requested from warehouse`,
+      targets: { carrierCompanyId },
+      metadata: { href: '/carrier/requests' },
+    });
+
     revalidatePath('/warehouse');
     revalidatePath('/carrier');
     return { success: true, data: { requestedTrips: eligible.length } };
@@ -1688,6 +1837,20 @@ export async function submitCarrierResponse(
       });
     });
 
+    await notifyYokomochiParties(request.yokomochiOrderId, {
+      type:
+        requestStatus === CarrierRequestStatus.REJECTED
+          ? NotificationType.ORDER_REJECTED
+          : NotificationType.ORDER_ACCEPTED,
+      title: 'Carrier response received',
+      message:
+        requestStatus === CarrierRequestStatus.REJECTED
+          ? 'Carrier declined the request'
+          : `Carrier accepted ${carrierTripCount} trip(s)`,
+      targets: { warehouse: true },
+      metadata: { href: '/warehouse/external-carrier' },
+    });
+
     revalidatePath('/warehouse');
     revalidatePath('/carrier');
     revalidatePath('/carrier/requests');
@@ -1770,6 +1933,20 @@ export async function assignCarrierTripDriver(
         data: { isAvailable: false, status: 'DRIVING' },
       });
     });
+
+    const assignedDriver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      select: { userId: true },
+    });
+    if (assignedDriver?.userId) {
+      await notifyYokomochiParties(trip.yokomochiOrderId, {
+        type: NotificationType.DRIVER_ASSIGNED,
+        title: 'New delivery assigned',
+        message: `Trip ${trip.tripCode} has been assigned to you`,
+        targets: { driverUserId: assignedDriver.userId },
+        metadata: { href: '/driver/active-job' },
+      });
+    }
 
     revalidatePath('/carrier');
     revalidatePath('/driver');

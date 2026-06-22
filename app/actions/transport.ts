@@ -13,6 +13,7 @@ import prisma from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/session';
 import { generateRequestNo } from '@/lib/utils';
 import { emitNotificationEvent } from '@/lib/sse/emitter';
+import { createNotification } from '@/lib/notifications';
 import { ActionResult } from '@/types';
 import {
   getLocationById,
@@ -340,14 +341,13 @@ export async function assignFleet(formData: FormData): Promise<ActionResult> {
     const driver = await prisma.driver.findUnique({ where: { id: driverId } });
 
     if (driver?.userId) {
-      await prisma.notification.create({
-        data: {
-          type: NotificationType.DRIVER_ASSIGNED,
-          title: 'New Job Assigned',
-          message: `You have been assigned to request ${request.requestNo}`,
-          userId: driver.userId,
-          transportRequestId: requestId,
-        },
+      await createNotification({
+        type: NotificationType.DRIVER_ASSIGNED,
+        title: 'New Job Assigned',
+        message: `You have been assigned to request ${request.requestNo}`,
+        userId: driver.userId,
+        transportRequestId: requestId,
+        metadata: { href: '/driver/active-job', requestId },
       });
     }
 
@@ -482,14 +482,13 @@ export async function subcontractorAssignFleet(
 
     const driver = await prisma.driver.findUnique({ where: { id: driverId } });
     if (driver?.userId) {
-      await prisma.notification.create({
-        data: {
-          type: NotificationType.DRIVER_ASSIGNED,
-          title: 'New Job Assigned',
-          message: `You have been assigned to a delivery job`,
-          userId: driver.userId,
-          transportRequestId: requestId,
-        },
+      await createNotification({
+        type: NotificationType.DRIVER_ASSIGNED,
+        title: 'New Job Assigned',
+        message: 'You have been assigned to a delivery job',
+        userId: driver.userId,
+        transportRequestId: requestId,
+        metadata: { href: '/driver/active-job', requestId },
       });
     }
 

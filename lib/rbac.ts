@@ -21,6 +21,9 @@ export function getDashboardForRole(role: UserRole): string {
 }
 
 export function canAccessRoute(role: UserRole, pathname: string): boolean {
+  if (pathname === '/profile' || pathname.startsWith('/profile/')) {
+    return true;
+  }
   const allowedPrefixes = ROLE_ROUTE_PERMISSIONS[role];
   return allowedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
