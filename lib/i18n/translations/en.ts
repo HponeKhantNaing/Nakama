@@ -1,6 +1,6 @@
 const en = {
   'app.name': 'MTMS',
-  'app.fullName': 'Maruichi Transport Management System',
+  'app.fullName': 'Maruichi Souko Co., Ltd. Transport Management System',
   'app.welcomeBack': 'Welcome back',
   'app.dashboard': 'Dashboard',
 
@@ -92,7 +92,7 @@ const en = {
   'dashboard.factory': 'Beverage Factory',
   'dashboard.carrier': 'Transport Company',
 
-  'dashboard.maruichi': 'Maruichi Souko',
+  'dashboard.maruichi': 'Maruichi Souko Co., Ltd.',
   'dashboard.shinwa': 'Shinwa Company',
   'dashboard.subcontractor': 'Subcontractor',
   'dashboard.driver': 'Driver',
@@ -124,7 +124,7 @@ const en = {
   'auth.invalidResetToken': 'Invalid or expired reset link.',
   'auth.backToLogin': 'Back to Login',
   'auth.demoAccounts': 'Demo Accounts (password: password123)',
-  'auth.role.maruichi': 'Maruichi Staff',
+  'auth.role.maruichi': 'Maruichi Souko Co., Ltd. Staff',
   'auth.role.shinwa': 'Shinwa Staff',
   'auth.role.subcontractor': 'Subcontractor',
   'auth.role.driver': 'Driver',

@@ -1,4 +1,4 @@
-// Enterprise TMS Schema — Maruichi Transport Management System
+// Enterprise TMS Schema — 丸市倉庫株式会社 Transport Management System
 
 generator client {
   provider = "prisma-client-js"

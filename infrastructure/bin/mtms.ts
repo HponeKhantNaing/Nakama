@@ -10,5 +10,5 @@ new MtmsStack(app, 'MtmsStack', {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION ?? 'ap-northeast-1',
   },
-  description: 'Maruichi Transport Management System Infrastructure',
+  description: '丸市倉庫株式会社 Transport Management System Infrastructure',
 });

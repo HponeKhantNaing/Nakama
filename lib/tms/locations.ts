@@ -1,4 +1,5 @@
 import { LatLng } from './routing';
+import { MARUICHI_COMPANY_NAME_EN, MARUICHI_COMPANY_NAME_JA } from '@/lib/company';
 
 export interface DeliveryLocation {
   id: string;
@@ -13,8 +14,8 @@ export interface DeliveryLocation {
 export const DELIVERY_LOCATIONS: DeliveryLocation[] = [
   {
     id: 'tokyo-wh',
-    labelEn: 'Tokyo — Maruichi Main Warehouse',
-    labelJa: '東京 — 丸一倉庫 本社',
+    labelEn: `Tokyo — ${MARUICHI_COMPANY_NAME_EN} Main Office`,
+    labelJa: `東京 — ${MARUICHI_COMPANY_NAME_JA} 本社`,
     lat: 35.6762,
     lng: 139.6503,
     region: 'warehouse',

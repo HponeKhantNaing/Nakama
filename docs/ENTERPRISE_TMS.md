@@ -3,7 +3,7 @@
 ## System Flow
 
 ```
-Maruichi Warehouse
+Maruichi Souko Co., Ltd. Warehouse (20号物流センター)
     → Create Delivery (products, weight, volume)
     → Auto Truck Suggestion Algorithm
     → Shinwa Receives (SSE notification)

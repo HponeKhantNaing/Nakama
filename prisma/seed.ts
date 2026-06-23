@@ -1,5 +1,8 @@
 import { PrismaClient, CompanyType, UserRole, TruckType, TruckStatus, DriverStatus, LicenseType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import {
+  MARUICHI_COMPANY_NAME_JA,
+} from '../lib/company';
 import { TRUCK_SPECS } from '../lib/tms/truck-assignment';
 
 const prisma = new PrismaClient();
@@ -9,10 +12,10 @@ async function main() {
 
   const maruichi = await prisma.company.upsert({
     where: { id: 'maruichi-company' },
-    update: { name: '20号物流センター', latitude: 35.6762, longitude: 139.6503 },
+    update: { name: MARUICHI_COMPANY_NAME_JA, latitude: 35.6762, longitude: 139.6503 },
     create: {
       id: 'maruichi-company',
-      name: '20号物流センター',
+      name: MARUICHI_COMPANY_NAME_JA,
       type: CompanyType.MARUICHI,
       address: 'Tokyo, Japan',
       email: 'contact@maruichi.jp',
@@ -154,7 +157,7 @@ async function main() {
     create: {
       email: 'staff@maruichi.jp',
       passwordHash,
-      name: 'Maruichi Staff',
+      name: '丸市倉庫株式会社 スタッフ',
       role: UserRole.MARUICHI_STAFF,
       companyId: maruichi.id,
     },

@@ -1,4 +1,4 @@
-# Maruichi Transport Management System (MTMS)
+# 丸市倉庫株式会社 輸送管理システム (MTMS)
 
 Production-ready B2B Logistics and Fleet Management System — **Key Coffee 横持輸送** workflow for 20号物流センター.
 
@@ -212,4 +212,4 @@ prisma/seed.ts
 
 ## License
 
-Proprietary — Maruichi Souko Company
+Proprietary — 丸市倉庫株式会社

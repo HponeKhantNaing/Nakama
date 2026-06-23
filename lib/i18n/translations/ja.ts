@@ -2,7 +2,7 @@ import type { TranslationKey } from './en';
 
 const ja: Record<TranslationKey, string> = {
   'app.name': 'MTMS',
-  'app.fullName': '丸一倉庫 輸送管理システム',
+  'app.fullName': '丸市倉庫株式会社 輸送管理システム',
   'app.welcomeBack': 'おかえりなさい',
   'app.dashboard': 'ダッシュボード',
 
@@ -94,7 +94,7 @@ const ja: Record<TranslationKey, string> = {
   'dashboard.factory': '飲料工場',
   'dashboard.carrier': '建会社',
 
-  'dashboard.maruichi': '丸一倉庫',
+  'dashboard.maruichi': '丸市倉庫株式会社',
   'dashboard.shinwa': '進和運輸',
   'dashboard.subcontractor': '下請け業者',
   'dashboard.driver': 'ドライバー',
@@ -126,7 +126,7 @@ const ja: Record<TranslationKey, string> = {
   'auth.invalidResetToken': 'リセットリンクが無効または期限切れです。',
   'auth.backToLogin': 'ログインに戻る',
   'auth.demoAccounts': 'デモアカウント（パスワード: password123）',
-  'auth.role.maruichi': '丸一スタッフ',
+  'auth.role.maruichi': '丸市倉庫株式会社スタッフ',
   'auth.role.shinwa': '進和スタッフ',
   'auth.role.subcontractor': '下請け業者',
   'auth.role.driver': 'ドライバー',

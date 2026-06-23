@@ -11,7 +11,7 @@ const notoSansJP = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
-  title: 'MTMS - 丸一倉庫 輸送管理システム',
+  title: 'MTMS - 丸市倉庫株式会社 輸送管理システム',
   description: 'B2B Logistics and Fleet Management System',
   icons: {
     icon: '/favicon.png',
