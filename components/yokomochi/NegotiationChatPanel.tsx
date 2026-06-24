@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { sendNegotiationChatMessage } from '@/app/actions/negotiation-chat';
+import { ChatMessageContent } from '@/components/yokomochi/ChatMessageContent';
+import { useJapaneseSpeechToText } from '@/hooks/useJapaneseSpeechToText';
 import { interpolate } from '@/lib/i18n';
 import { useTranslation } from '@/lib/i18n/context';
-import type { TranslationKey } from '@/lib/i18n';
-import { Send } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Mic, Send, Square } from 'lucide-react';
 
 type ChatMessage = {
   id: string;
@@ -16,21 +17,7 @@ type ChatMessage = {
   createdAt: Date | string;
   sender: { id: string; name: string; role: string };
 };
-//msg
-function renderChatMessage(
-  message: string,
-  t: (key: TranslationKey) => string
-): string {
-  try {
-    const parsed = JSON.parse(message);
-    if (parsed && typeof parsed === 'object' && parsed.i18nKey) {
-      return interpolate(t(parsed.i18nKey), parsed.params ?? {});
-    }
-  } catch {
-    /* not a system message — render as typed text */
-  }
-  return message;
-}
+
 export function NegotiationChatPanel({
   orderId,
   orderNo,
@@ -57,9 +44,22 @@ export function NegotiationChatPanel({
       : undefined
   );
 
+  const {
+    listening,
+    displayText,
+    error: speechError,
+    startListening,
+    stopRecognition,
+    reset: resetSpeech,
+  } = useJapaneseSpeechToText();
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, listening, displayText]);
 
   useEffect(() => {
     onMessagesChange?.(messages);
@@ -92,17 +92,61 @@ export function NegotiationChatPanel({
     return () => es.close();
   }, [orderId, readOnly]);
 
-  function send() {
-    const msg = text.trim();
-    if (!msg) return;
+  function sendMessage(message: string) {
+    const msg = message.trim();
+    if (!msg || isPending) return;
     startTransition(async () => {
       const result = await sendNegotiationChatMessage({ yokomochiOrderId: orderId, message: msg });
-      if (result.success) setText('');
+      if (result.success) {
+        setText('');
+        resetSpeech();
+      }
     });
   }
 
+  function send() {
+    sendMessage(listening ? displayText : text);
+  }
+
+  function toggleSpeech() {
+    if (listening) {
+      void (async () => {
+        const spoken = await stopRecognition();
+        if (spoken) {
+          sendMessage(spoken);
+        } else {
+          resetSpeech();
+        }
+      })();
+      return;
+    }
+    void (async () => {
+      setText('');
+      const started = await startListening();
+      if (!started) {
+        resetSpeech();
+      }
+    })();
+  }
+
+  const inputValue = listening ? displayText : text;
+  const speechErrorMessage =
+    speechError === 'insecure'
+      ? t('chat.speechInsecure')
+      : speechError === 'mic-denied'
+        ? t('chat.speechMicDenied')
+        : speechError === 'network'
+          ? t('chat.speechNetwork')
+          : speechError === 'unconfigured'
+            ? t('chat.speechUnconfigured')
+            : speechError === 'service-error'
+              ? t('chat.speechServiceError')
+              : speechError === 'failed'
+                ? t('chat.speechFailed')
+                : null;
+
   return (
-    <div className="flex h-[320px] flex-col rounded-xl border bg-white">
+    <div className="flex h-[360px] flex-col rounded-xl border bg-white">
       <div className="border-b px-3 py-2">
         <p className="text-sm font-semibold">{t('factory.negotiationChat')}</p>
         <p className="text-xs text-muted-foreground">
@@ -122,12 +166,12 @@ export function NegotiationChatPanel({
               <div
                 className={
                   mine
-                    ? 'max-w-[85%] rounded-xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground'
-                    : 'max-w-[85%] rounded-xl rounded-bl-sm bg-muted px-3 py-2 text-sm'
+                    ? 'max-w-[88%] rounded-xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground'
+                    : 'max-w-[88%] rounded-xl rounded-bl-sm bg-muted px-3 py-2 text-sm'
                 }
               >
                 <p className="text-[10px] opacity-80">{m.sender.name}</p>
-                <p>{renderChatMessage(m.message, t)}</p>
+                <ChatMessageContent message={m.message} mine={mine} />
                 <p className="mt-1 text-[10px] opacity-70">{formatDate(m.createdAt)}</p>
               </div>
             </div>
@@ -136,21 +180,58 @@ export function NegotiationChatPanel({
         <div ref={bottomRef} />
       </div>
       {!readOnly && (
-        <div className="flex gap-2 border-t p-2">
-          <Input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={t('factory.chatPlaceholder')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                send();
+        <div className="space-y-2 border-t p-2">
+          {listening && (
+            <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
+              </span>
+              <p className="text-xs text-rose-800">{t('chat.speechListening')}</p>
+            </div>
+          )}
+          {speechErrorMessage && (
+            <p className="text-xs text-destructive">{speechErrorMessage}</p>
+          )}
+          <div className="flex gap-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => {
+                if (!listening) setText(e.target.value);
+              }}
+              readOnly={listening}
+              placeholder={
+                listening ? t('chat.speechPlaceholder') : t('factory.chatPlaceholder')
               }
-            }}
-          />
-          <Button size="icon" disabled={isPending} onClick={send} aria-label={t('common.send')}>
-            <Send className="h-4 w-4" />
-          </Button>
+              className={cn(listening && 'border-rose-200 bg-rose-50/50')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !listening) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant={listening ? 'destructive' : 'outline'}
+              disabled={isPending}
+              onClick={toggleSpeech}
+              aria-label={listening ? t('chat.speechStopSend') : t('chat.speechStart')}
+              title={listening ? t('chat.speechStopSend') : t('chat.speechStart')}
+            >
+              {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="icon"
+              disabled={isPending || listening || !inputValue.trim()}
+              onClick={send}
+              aria-label={t('common.send')}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">{t('chat.speechHint')}</p>
         </div>
       )}
     </div>

@@ -15,6 +15,7 @@
 /build
 
 /certificates/
+/data/negotiation-voice/
 
 # debug
 npm-debug.log*
